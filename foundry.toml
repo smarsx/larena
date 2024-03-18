@@ -3,4 +3,25 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+ffi = true
+fs_permissions = [{ access = "read-write", path = "./"}]
+optimizer_runs = 1000000
+#no_match_test = "FFI|LongRunning"
+solc="0.8.24"
+
+[doc]
+ignore = ["test/", "deploy/", "script/", "analysis/", "lib/", "out/", "cache/", "broadcast/"]
+
+[invariant]
+runs = 1000
+depth = 500
+include_storage = true
+include_push_bytes = true
+
+# fuzz settings
+[profile.default.fuzz]
+runs=5000
+
+[rpc_endpoints]
+base-sepolia = "https://base-mainnet.g.alchemy.com/v2/${BASE_SEPOLIA_RPC_KEY}"
+base = "https://base-mainnet.g.alchemy.com/v2/${BASE_RPC_KEY}"
