@@ -4,3 +4,6 @@
 [submodule "lib/VRGDAs"]
 	path = lib/VRGDAs
 	url = https://github.com/transmissions11/VRGDAs
+[submodule "lib/goo-issuance"]
+	path = lib/goo-issuance
+	url = https://github.com/transmissions11/goo-issuance
