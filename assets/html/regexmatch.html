@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+    <title> userForm </title>
+    <script src="https://code.jquery.com/jquery-2.2.4.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+
+    <script>
+        function stringmatch() {
+            var regexpression = new RegExp((document.getElementsByClassName("regex")[0].value));
+
+            var entertext = document.getElementsByClassName("common")[0].value;
+            if (!(entertext.match(regexpression))) {
+                alert("not a match");
+            }
+            else {
+                alert("the expression matches");
+            }
+        }
+    // var regexpression = new RegExp((document.getElementsByClassName("regex")[0].value));
+    </script>
+
+    <style>
+        html {
+            font-family: verdana;
+        }
+
+        h1 {
+            font-size: 30px;
+
+        }
+
+        .common {
+            color: black;
+            font-size: 30px;
+            font-family: verdana;
+            padding: 10px;
+            width: 1000px;
+            align-text: center;
+        }
+
+        .regex {
+            color: black;
+            font-size: 30px;
+            font-family: verdana;
+            padding: 10px;
+            width: 1000px;
+            align-text: center;
+        }
+
+        #para {
+            font-size: 30px;
+            font-family: verdana;
+            padding: 10px;
+        }
+
+        #done {
+            font-size: 30px;
+            padding: 10px;
+            color: green;
+            width: 1000px;
+        }
+    </style>
+    <h1> regex-experiment </h1>
+    <body>
+        <div class="mainform">
+            <form action="#" id="regexform" onsubmit="stringmatch(); return false">
+                <p id="para"> enter the regualr expression </p>
+                <input class="regex" type="text" name="regex">
+                <br><br><br>
+                <p id="para"> enter the string </p>
+                <input class="common" type="text" name="email">
+                <br><br><br>
+                <input id="done" type="submit" value="submit">
+            </form>
+        </div>
+    </body>
+
+</html>

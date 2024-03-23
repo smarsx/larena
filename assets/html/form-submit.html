@@ -1,0 +1,28 @@
+<style>
+	#Myform {
+		width: 300px;
+		border: 1px solid #ccc;
+		padding: 14px;
+		background: #ececec;
+	}
+</style>
+<script src="https://code.jquery.com/jquery-2.2.4.js"></script>
+<script>
+	$(document).ready(function () {
+		$("#mysubmit").click(function () {
+			$("#Myform").submit(); // Form submission.
+			var name = $("#Name").val();
+			var email = $("#Email").val();
+			alert("Name : " + name + "\nEmail : " + email);
+		});
+	});
+</script>
+<div class="MainForm">
+	<form method="post" id="Myform">
+		<label>Enter Name</label>
+		<input type="text" id="Name" name="Name"><br>
+		<label>Enter Email</label>
+		<input type="text" id="Email" name="Email"><br>
+		<input type="submit" id="mysubmit" name="submit" value="Submit" class="btn btn-primary" />
+	</form>
+</div>

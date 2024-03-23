@@ -1,0 +1,6 @@
+solmate/=lib/solmate/src/
+forge-std/=lib/forge-std/src/
+goo-issuance/=lib/goo-issuance/src/
+stringutils/=lib/solidity-stringutils/src/
+VRGDAs/=lib/VRGDAs/src/
+solady/=lib/solady/src/

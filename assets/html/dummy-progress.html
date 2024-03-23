@@ -1,0 +1,18 @@
+<html>
+    <script src="https://code.jquery.com/jquery-2.2.4.js"></script>
+    <script>
+        var progress = function (sec) {
+            var interval = 250;//milliseconds
+            setTimeout(function () {
+                sec = sec + 25;
+                $('#bar').val(sec);
+                if (sec < 100)
+                    progress(sec);//call self with new value
+            }, interval)
+        }
+        progress(0);
+    </script>
+    <body>
+        <progress max="100" value="0" id="bar"></progress>
+    </body>
+</html>

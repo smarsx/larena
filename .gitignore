@@ -12,3 +12,14 @@ docs/
 
 # Dotenv file
 .env
+/notes
+.vscode/
+script/*.s.sol
+script/interfaces/
+bash/
+temp/*
+.prettierignore
+.prettierrc
+slither.config.json
+/analysis/__pycache__
+/analysis/venv

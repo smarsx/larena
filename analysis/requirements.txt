@@ -1,0 +1,5 @@
+eth_abi==4.1.0
+eth_utils==2.1.1
+eth-typing>=3.0.0
+eth-hash>=0.3.1
+numpy==1.22.3
