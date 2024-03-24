@@ -79,7 +79,14 @@ contract GeneralIntegrationTest is Test {
         assertTrue(h > 0);
     }
 
-    function testTime(uint40 _warp) public {
+    function testTime(uint48 _warp) public view {
+        vm.assume(_warp > 0);
+        (uint256 epochID, uint256 time) = ocmeme.currentEpoch();
+        uint256 time2 = ocmeme.epochStart(epochID);
+        assertEq(time, time2);
+    }
+
+    function testBasicImpl(uint40 _warp) public {
         vm.assume(_warp > 0);
         vm.warp(_warp);
 

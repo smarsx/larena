@@ -1,4 +1,4 @@
-# ocmeme
+# OCmeme
 
 On-chain user-generated autonomous art competition.
 Inspired by art-gobblers, basepaint, and inscriptions.
@@ -23,7 +23,7 @@ Live at ocmeme.com
 
 ### Ocmeme
 
-- ERC-721 priced on logistic [VRGDA](https://www.paradigm.xyz/2022/08/vrgda) curve
+- ERC-721 priced on logistic [VRGDA](https://www.paradigm.xyz/2022/08/vrgda#logistic-issuance-schedule) curve
 - Max 500 per event
 - minted with ether
 - given an emission multiple for continuous lazy $GOO emission (see $GOO)
@@ -31,14 +31,14 @@ Live at ocmeme.com
 
 ### Pages
 
-- ERC-721 priced on linear [VRGDA](https://www.paradigm.xyz/2022/08/vrgda) curve
+- ERC-721 priced on linear [VRGDA](https://www.paradigm.xyz/2022/08/vrgda#linear) curve
 - minted with $GOO
 - can only be used for a single submission
 - stores metadata: royalty & sstore2 pointer to onchain data-uri
 
 ### Goo
 
-- $GOO is an erc-20 using [Gradual Ownership Optimization](https://www.paradigm.xyz/2022/09/goo)
+- ERC-20 using [Gradual Ownership Optimization](https://www.paradigm.xyz/2022/09/goo)
 - $GOO is lazily emitted by Ocmeme's based on their emission multiple
 - use $GOO to vote on and mint $PAGES
 

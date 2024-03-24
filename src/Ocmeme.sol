@@ -23,7 +23,7 @@ import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {Pages} from "./Pages.sol";
 import {Goo} from "./Goo.sol";
 
-/// @title ocmeme
+/// @title OCmeme
 /// On-chain user-generated autonomous art competition.
 /// @author smarsx @_smarsx
 /// Inspired by Art Gobblers (https://github.com/artgobblers/art-gobblers).
@@ -223,6 +223,10 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         $allowRecovery = 1;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            USER ACTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice Mint ocmeme
     function mint() public payable {
         (uint256 epochID, uint256 estart) = currentEpoch();
@@ -244,18 +248,6 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             // refund overpaid
             SafeTransferLib.safeTransferETH(msg.sender, msg.value - price);
         }
-    }
-
-    /// @notice Mint VAULT_NUM to protocol vault.
-    function vaultMint() external {
-        (uint256 epochID, ) = currentEpoch();
-        Epoch memory e = $epochs[epochID];
-        if (uint256(e.count) + VAULT_NUM > SUPPLY_PER_EPOCH) revert MaxSupply();
-        if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
-
-        $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
-        $epochs[epochID].count += uint16(VAULT_NUM);
-        $prevTokenID = uint56(_batchMint(address($vault), $prevTokenID, epochID, ++e.count));
     }
 
     /// @notice Submit page to an epoch.
@@ -330,6 +322,67 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         $votes[_pageID].votes += uint208(_goo);
         emit Vote(_pageID, _goo);
     }
+
+    /// @notice Claim gold winnings.
+    /// @dev must be owner of goldPageID.
+    function claimGold(uint256 _epochID) external {
+        Epoch memory e = $epochs[_epochID];
+        if ($pages.ownerOf(e.goldPageID) != msg.sender) revert NotOwner();
+        if (e.claims & (1 << uint8(ClaimType.GOLD)) != 0) revert DuplicateClaim();
+
+        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.GOLD)));
+
+        uint256 amt;
+        uint256 p = uint256(e.proceeds);
+        assembly {
+            amt := div(mul(p, GOLD_SHARE), PAYOUT_DENOMINATOR)
+        }
+
+        emit Claim(_epochID, e.goldPageID, ClaimType.GOLD, amt);
+        SafeTransferLib.safeTransferETH(msg.sender, amt);
+    }
+
+    /// @notice Claim silver winnings.
+    /// @dev must be owner of silverPageID.
+    function claimSilver(uint256 _epochID) external {
+        Epoch memory e = $epochs[_epochID];
+        if ($pages.ownerOf(e.silverPageID) != msg.sender) revert NotOwner();
+        if (e.claims & (1 << uint8(ClaimType.SILVER)) != 0) revert DuplicateClaim();
+
+        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.SILVER)));
+
+        uint256 amt;
+        uint256 p = uint256(e.proceeds);
+        assembly {
+            amt := div(mul(p, SILVER_SHARE), PAYOUT_DENOMINATOR)
+        }
+
+        emit Claim(_epochID, e.silverPageID, ClaimType.SILVER, amt);
+        SafeTransferLib.safeTransferETH(msg.sender, amt);
+    }
+
+    /// @notice Claim bronze winnings.
+    /// @dev must be owner of bronzePageID.
+    function claimBronze(uint256 _epochID) external {
+        Epoch memory e = $epochs[_epochID];
+        if ($pages.ownerOf(e.bronzePageID) != msg.sender) revert NotOwner();
+        if (e.claims & (1 << uint8(ClaimType.BRONZE)) != 0) revert DuplicateClaim();
+
+        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.BRONZE)));
+
+        uint256 amt;
+        uint256 p = uint256(e.proceeds);
+        assembly {
+            amt := div(mul(p, BRONZE_SHARE), PAYOUT_DENOMINATOR)
+        }
+
+        emit Claim(_epochID, e.bronzePageID, ClaimType.BRONZE, amt);
+        SafeTransferLib.safeTransferETH(msg.sender, amt);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PROTOCOL ACTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Crown winners for previous epoch.
     /// @dev pages[0] can undeservingly win silver/bronze if not enough pages w/ votes > 0
@@ -408,68 +461,19 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         emit SetVoteDeadzone(epochID, dztime);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                CLAIMS
-    //////////////////////////////////////////////////////////////*/
+    /// @notice Mint VAULT_NUM to protocol vault.
+    function vaultMint() external {
+        (uint256 epochID, ) = currentEpoch();
+        Epoch memory e = $epochs[epochID];
+        if (uint256(e.count) + VAULT_NUM > SUPPLY_PER_EPOCH) revert MaxSupply();
+        if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
 
-    /// @notice Claim gold winnings.
-    /// @dev must be owner of goldPageID.
-    function claimGold(uint256 _epochID) external {
-        Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.goldPageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.GOLD)) != 0) revert DuplicateClaim();
-
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.GOLD)));
-
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, GOLD_SHARE), PAYOUT_DENOMINATOR)
-        }
-
-        emit Claim(_epochID, e.goldPageID, ClaimType.GOLD, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
+        $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
+        $epochs[epochID].count += uint16(VAULT_NUM);
+        $prevTokenID = uint56(_batchMint(address($vault), $prevTokenID, epochID, ++e.count));
     }
 
-    /// @notice Claim silver winnings.
-    /// @dev must be owner of silverPageID.
-    function claimSilver(uint256 _epochID) external {
-        Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.silverPageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.SILVER)) != 0) revert DuplicateClaim();
-
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.SILVER)));
-
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, SILVER_SHARE), PAYOUT_DENOMINATOR)
-        }
-
-        emit Claim(_epochID, e.silverPageID, ClaimType.SILVER, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
-    }
-
-    /// @notice Claim bronze winnings.
-    /// @dev must be owner of bronzePageID.
-    function claimBronze(uint256 _epochID) external {
-        Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.bronzePageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.BRONZE)) != 0) revert DuplicateClaim();
-
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.BRONZE)));
-
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, BRONZE_SHARE), PAYOUT_DENOMINATOR)
-        }
-
-        emit Claim(_epochID, e.bronzePageID, ClaimType.BRONZE, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
-    }
-
-    /// @notice Claim vault winnings.
+    /// @notice Claim vault share.
     function claimVault(uint256 _epochID) external {
         Epoch memory e = $epochs[_epochID];
         if (e.claims & (1 << uint8(ClaimType.VAULT)) != 0) revert DuplicateClaim();
