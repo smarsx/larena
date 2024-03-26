@@ -181,4 +181,49 @@ contract MainInvariantTest is Test {
             assertTrue(vaultClaims == 0);
         }
     }
+
+    function invariant_winners() public view {
+        (uint256 maxid, ) = ocmeme.currentEpoch();
+        for (uint i = 1; i <= maxid; i++) {
+            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            if (e.goldPageID > 0) {
+                uint256 gold;
+                uint256 silver;
+                uint256 bronze;
+                uint256 goldIdx;
+                uint256 silverIdx;
+                uint256 bronzeIdx;
+                uint256[] memory pageIDs = ocmeme.submissions(i);
+                for (uint256 j; j < pageIDs.length; j++) {
+                    Ocmeme.VotePair memory v = ocmeme.votes(j);
+                    if (v.votes > gold) {
+                        // silver -> bronze
+                        bronze = silver;
+                        bronzeIdx = silverIdx;
+                        // gold -> silver
+                        silver = gold;
+                        silverIdx = goldIdx;
+                        // new gold
+                        gold = v.votes;
+                        goldIdx = i;
+                    } else if (v.votes > silver) {
+                        // silver -> bronze
+                        bronze = silver;
+                        bronzeIdx = silverIdx;
+
+                        // new silver
+                        silver = v.votes;
+                        silverIdx = i;
+                    } else if (v.votes > bronze) {
+                        // new bronze
+                        bronze = v.votes;
+                        bronzeIdx = i;
+                    }
+                }
+                assertEq(e.goldPageID, gold);
+                assertEq(e.silverPageID, silver);
+                assertEq(e.bronzePageID, bronze);
+            }
+        }
+    }
 }

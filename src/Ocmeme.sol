@@ -9,17 +9,17 @@ pragma solidity ^0.8.24;
      ██████   ██████ ██      ██ ███████ ██      ██ ███████
 */
 
+import {Owned} from "solmate/auth/Owned.sol";
 import {LibGOO} from "goo-issuance/LibGOO.sol";
 import {LogisticVRGDA} from "VRGDAs/LogisticVRGDA.sol";
-import {Owned} from "solmate/auth/Owned.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {toDaysWadUnsafe, toWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 
-import {LibString} from "solady/utils/LibString.sol";
-import {SSTORE2} from "solady/utils/SSTORE2.sol";
+import {SSTORE2} from "./libraries/SSTORE2.sol";
+import {NFTMeta} from "./libraries/NFTMeta.sol";
+import {LibString} from "./libraries/LibString.sol";
+import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 
 import {OcmemeERC721} from "./utils/token/OcmemeERC721.sol";
-import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {Pages} from "./Pages.sol";
 import {Goo} from "./Goo.sol";
 
@@ -273,7 +273,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             NFTMeta.constructTokenURI(
                 NFTMeta.MetaParams({
                     typeUri: _typeUri,
-                    name: getTitle(epochID),
+                    name: string.concat("OCmeme #", epochID.toString()),
                     description: _description,
                     duri: _duri
                 })
@@ -299,6 +299,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
 
         VotePair memory vp = $votes[_pageID];
         uint256 dz = uint256(vp.dztime);
+        uint256 v = uint256(vp.votes);
         assembly {
             // is deadzone period
             if and(gt(dz, 0), gt(timestamp(), dz)) {
@@ -317,9 +318,10 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
                 // muldiv: floor(goo * utilization / 100)
                 _goo := div(mul(_goo, utilization), 100)
             }
+            v := add(v, _goo)
         }
 
-        $votes[_pageID].votes += uint208(_goo);
+        $votes[_pageID].votes = uint208(v);
         emit Vote(_pageID, _goo);
     }
 
@@ -581,35 +583,6 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         emit GooBalanceUpdated(_user, updatedBalance);
     }
 
-    /*///////////////////////////////////////////////////////////////////
-                                EIP-2981 
-    //////////////////////////////////////////////////////////////////*/
-
-    /// @notice Called with the sale price to determine how much royalty
-    // is owed and to whom.
-    /// @param _tokenId The NFT asset queried for royalty information.
-    /// @param _salePrice The sale price of the NFT asset specified by _tokenId.
-    /// @return receiver Address of who should be sent the royalty payment.
-    /// @return royaltyAmount The royalty payment amount for _salePrice.
-    function royaltyInfo(
-        uint256 _tokenId,
-        uint256 _salePrice
-    ) external view returns (address, uint256) {
-        MemeData memory md = getMemeData[_tokenId];
-        uint256 winningPageId = uint256($epochs[md.epochID].goldPageID);
-
-        address owner = $pages.ownerOf(winningPageId);
-        (, uint96 royalty) = $pages.metadatas(winningPageId);
-
-        return (owner, (_salePrice * royalty) / ROYALTY_DENOMINATOR);
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(OcmemeERC721) returns (bool) {
-        return interfaceId == 0x2a55205a || super.supportsInterface(interfaceId);
-    }
-
     /*//////////////////////////////////////////////////////////////
                               ERC721 LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -630,7 +603,11 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
 
         if (e.goldPageID == 0) {
             // unrevealed
-            return NFTMeta.constructBaseTokenURI(md.index, getTitle(md.epochID));
+            return
+                NFTMeta.constructBaseTokenURI(
+                    md.index,
+                    string.concat("OCmeme #", uint256(md.epochID).toString())
+                );
         } else {
             // revealed
             (address pointer, ) = $pages.metadatas(e.goldPageID);
@@ -676,34 +653,57 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     }
 
     /*///////////////////////////////////////////////////////////////////
+                                EIP-2981 
+    //////////////////////////////////////////////////////////////////*/
+
+    /// @notice Called with the sale price to determine how much royalty
+    // is owed and to whom.
+    /// @param _tokenId The NFT asset queried for royalty information.
+    /// @param _salePrice The sale price of the NFT asset specified by _tokenId.
+    /// @return receiver Address of who should be sent the royalty payment.
+    /// @return royaltyAmount The royalty payment amount for _salePrice.
+    function royaltyInfo(
+        uint256 _tokenId,
+        uint256 _salePrice
+    ) external view returns (address, uint256) {
+        MemeData memory md = getMemeData[_tokenId];
+        uint256 winningPageId = uint256($epochs[md.epochID].goldPageID);
+
+        address owner = $pages.ownerOf(winningPageId);
+        (, uint96 royalty) = $pages.metadatas(winningPageId);
+
+        return (owner, (_salePrice * royalty) / ROYALTY_DENOMINATOR);
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(OcmemeERC721) returns (bool) {
+        return interfaceId == 0x2a55205a || super.supportsInterface(interfaceId);
+    }
+
+    /*///////////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////////*/
 
     /// @notice Start Epoch 1.
+    /// @dev one-time use.
     function setStart() external onlyOwner {
         if ($start != 0) revert();
         $start = uint32(block.timestamp);
         emit SetStart(block.timestamp);
     }
 
-    /// @notice Update base URI string.
-    function updateBaseURI(string calldata _baseURI) external onlyOwner {
-        $baseURI = _baseURI;
-        emit SetBaseURI(_baseURI);
-    }
-
     /// @notice Turn off recovery ability.
+    /// @dev one-time use.
     function deleteRecovery() external onlyOwner {
         delete $allowRecovery;
         emit LockedRecovery();
     }
 
-    /// @notice Withdrawal erc-20
-    /// @dev used for stranded tokens
-    /// @dev borrowing the goo erc-20 interface.
-    function withdrawalERC20(address _token, address _to, uint256 _amt) external onlyOwner {
-        require(Goo(_token).balanceOf(address(this)) >= _amt, "Insufficient balance");
-        Goo(_token).transfer(_to, _amt);
+    /// @notice Update base URI string.
+    function updateBaseURI(string calldata _baseURI) external onlyOwner {
+        $baseURI = _baseURI;
+        emit SetBaseURI(_baseURI);
     }
 
     /// @notice If past RECOVERY_PERIOD, recover unclaimed funds to vault.
@@ -791,10 +791,5 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         unchecked {
             return getVRGDAPrice(toDaysWadUnsafe(timeSinceStart), _numMinted);
         }
-    }
-
-    /// @notice Get title of epoch.
-    function getTitle(uint256 _epochID) internal pure returns (string memory _title) {
-        _title = string.concat("OCmeme #", _epochID.toString());
     }
 }
