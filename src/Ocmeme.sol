@@ -781,6 +781,10 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     /// @notice Get active price.
     function getPrice() public view returns (uint256) {
         (uint256 epochID, uint256 estart) = currentEpoch();
+        uint256 count = $epochs[epochID].count;
+        assembly {
+            count := add(sub(mul(epochID, 4), 1), count) // cupio dissolvi
+        }
         return _getPrice(estart, $epochs[epochID].count);
     }
 

@@ -1,7 +1,7 @@
 # OCmeme
 
 On-chain user-generated autonomous art competition.
-Inspired by art-gobblers, basepaint, and inscriptions.
+Inspired by art-gobblers, basepaint, inscriptions.
 Proceeds are paid to top-voted pages.
 
 Live at ocmeme.com
@@ -24,10 +24,10 @@ Live at ocmeme.com
 ### Ocmeme
 
 - ERC-721 priced on logistic [VRGDA](https://www.paradigm.xyz/2022/08/vrgda#logistic-issuance-schedule) curve
-- Max 500 per event
+- Max 500 per epoch
 - minted with ether
 - given an emission multiple for continuous lazy $GOO emission (see $GOO)
-- when events concludes, metadata is inherited from top-voted submission
+- when epoch concludes, metadata is inherited from top-voted submission
 
 ### Pages
 
@@ -64,9 +64,9 @@ function mint() external payable {
 
 - main entry point to game
 - minting an Ocmeme gives you a constant emission of $GOO, which is then used to mint and vote on $PAGES
-- when event concludes tokenURI becomes top-voted page
+- when epoch concludes tokenURI becomes top-voted page
 - any funds paid > price are auto-refunded
-- minting is open until events logistic asymptote is hit (500)
+- minting is open until epochs logistic asymptote (max_supply) is hit
 
 ### Submission
 
@@ -83,15 +83,14 @@ function submit(
         NFTMeta.constructTokenURI(...)
     );
     $pages.setMetadata(_pageID, _royalty, pointer);
-    $submissions[eventID].push(_pageID);
+    $submissions[currentEpoch].push(_pageID);
     ...
 }
 ```
-* contract technically supports any data-uri. frontend currently only supports image/text/html.
 
 - an unused $PAGES token is required to make a submission
-- max 100 submissions per event
-- top 3 submissions ranked by votes are crowned winners at conclusion of event
+- max 100 submissions per epoch
+- top 3 submissions ranked by votes are crowned winners at conclusion of epoch
 - Ocmeme tokenURI & royalty are inherited from top-voted submission
 
 - _duri: any valid [data-uri](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs)
@@ -105,7 +104,7 @@ function submit(
 
 ### Claim
 
-- once event is concluded the owners of top-voted $PAGES can claim their winnings.
+- once epoch is concluded the owners of top-voted $PAGES can claim their winnings.
 - Gold: 85%
 - Silver: 8%
 - Bronze: 4%

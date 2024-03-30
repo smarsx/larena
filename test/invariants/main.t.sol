@@ -226,4 +226,13 @@ contract MainInvariantTest is Test {
             }
         }
     }
+
+    function invariant_death() public view {
+        (uint256 epochid, ) = ocmeme.currentEpoch();
+        if (epochid > 125) {
+            Ocmeme.Epoch memory e = ocmeme.epochs(epochid);
+            assertEq(e.proceeds, 0);
+            assertEq(e.count, 0);
+        }
+    }
 }

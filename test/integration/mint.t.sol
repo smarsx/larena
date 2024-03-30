@@ -72,4 +72,18 @@ contract MintIntegrationTest is Test {
         assertEq(amt + amt + ocmeme.VAULT_NUM(), e.count);
         assertEq(amt + amt + ocmeme.VAULT_NUM(), ocmeme.prevTokenID());
     }
+
+    function testDeath(uint256 _warp) public {
+        bound(_warp, 10 * 52 weeks, type(uint256).max);
+        (uint256 eventID, ) = ocmeme.currentEpoch();
+        if (eventID > 125) {
+            vm.expectRevert();
+            ocmeme.getPrice();
+
+            vm.deal(actor, type(uint248).max);
+            vm.startPrank(actor);
+            vm.expectRevert();
+            ocmeme.mint{value: type(uint248).max}();
+        }
+    }
 }
