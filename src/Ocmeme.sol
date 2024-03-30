@@ -25,7 +25,7 @@ import {Goo} from "./Goo.sol";
 
 /// @title OCmeme
 /// On-chain user-generated autonomous art competition.
-/// @author smarsx @_smarsx
+/// @author smarsx.eth
 /// Inspired by Art Gobblers (https://github.com/artgobblers/art-gobblers).
 /// @custom:experimental This is an experimental contract. (NO PROFESSIONAL AUDIT, USE AT YOUR OWN RISK)
 contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
@@ -266,7 +266,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         (uint256 epochID, uint256 estart) = currentEpoch();
 
         if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
-        if ($submissions[epochID].length > MAX_SUBMISSIONS) revert MaxSupply();
+        if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
         if (block.timestamp - estart > ACTIVE_PERIOD) revert InvalidTime();
 
         address pointer = SSTORE2.write(
@@ -404,12 +404,12 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         uint256 silverIdx;
         uint256 bronze;
         uint256 bronzeIdx;
-        uint256[] memory lpages = $submissions[epochID];
-        uint256 len = lpages.length;
+        uint256[] memory subs = $submissions[epochID];
+        uint256 sublen = subs.length;
 
         uint256 lvotes;
-        for (uint256 i; i < len; i++) {
-            lvotes = $votes[lpages[i]].votes;
+        for (uint256 i; i < sublen; i++) {
+            lvotes = $votes[subs[i]].votes;
             if (lvotes > gold) {
                 // silver -> bronze
                 bronze = silver;
@@ -435,9 +435,9 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             }
         }
 
-        uint256 bronzePageID = lpages[bronzeIdx];
-        uint256 silverPageID = lpages[silverIdx];
-        uint256 goldPageID = lpages[goldIdx];
+        uint256 bronzePageID = subs[bronzeIdx];
+        uint256 silverPageID = subs[silverIdx];
+        uint256 goldPageID = subs[goldIdx];
 
         $epochs[epochID].bronzePageID = uint32(bronzePageID);
         $epochs[epochID].silverPageID = uint32(silverPageID);
@@ -610,8 +610,8 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
                 );
         } else {
             // revealed
-            (address pointer, ) = $pages.metadatas(e.goldPageID);
-            return NFTMeta.renderWithTraits(md.emissionMultiple, string(SSTORE2.read(pointer)));
+            Pages.Metadata memory m = $pages.GetMetadata(e.goldPageID);
+            return NFTMeta.renderWithTraits(md.emissionMultiple, SSTORE2.read(m.pointer));
         }
     }
 
@@ -670,9 +670,9 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         uint256 winningPageId = uint256($epochs[md.epochID].goldPageID);
 
         address owner = $pages.ownerOf(winningPageId);
-        (, uint96 royalty) = $pages.metadatas(winningPageId);
+        Pages.Metadata memory m = $pages.GetMetadata(_tokenId);
 
-        return (owner, (_salePrice * royalty) / ROYALTY_DENOMINATOR);
+        return (owner, (_salePrice * uint256(m.royalty)) / ROYALTY_DENOMINATOR);
     }
 
     function supportsInterface(

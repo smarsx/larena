@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {SSTORE2} from "solady/utils/SSTORE2.sol";
+
 import {Content} from "../Content.sol";
 import {Decoder} from "../utils/Decoder.sol";
-import {SSTORE2} from "solady/utils/SSTORE2.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 
 contract NftMetaTest is Test, Content {
@@ -22,7 +23,7 @@ contract NftMetaTest is Test, Content {
             // construct token uri
             // store sstore2
             address pointer = SSTORE2.write(NFTMeta.constructTokenURI(imgs[i]));
-            string memory uri = NFTMeta.render(string(SSTORE2.read(pointer)));
+            string memory uri = NFTMeta.render(SSTORE2.read(pointer));
 
             Decoder.DecodedContent memory content = decoder.decodeContent(
                 false,
@@ -45,7 +46,7 @@ contract NftMetaTest is Test, Content {
             // construct token uri
             // sstore2
             address pointer = SSTORE2.write(NFTMeta.constructTokenURI(imgs[i]));
-            string memory uri = NFTMeta.render(string(SSTORE2.read(pointer)));
+            string memory uri = NFTMeta.render(SSTORE2.read(pointer));
 
             Decoder.DecodedContent memory content = decoder.decodeContent(
                 false,

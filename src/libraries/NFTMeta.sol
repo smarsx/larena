@@ -5,7 +5,7 @@ import {Base64} from "solady/utils/Base64.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
 /// @title NFTMeta
-/// @author smarsx @smarsx
+/// @author smarsx.eth
 /// @notice Helper functions for encoding/decoding ocmemes data-uris.
 library NFTMeta {
     using LibString for uint256;
@@ -22,79 +22,53 @@ library NFTMeta {
         string duri;
     }
 
-    /// @notice Construct partial URI with no padding.
-    /// @dev constructs URI for sstore2 storage.
+    /// @notice Construct partial URI.
     /// @dev rest of URI will be added in render/renderWithTraits.
-    /// we leave out the json closing bracket and use no padding to allow addition to json for traits.
     function constructTokenURI(MetaParams memory _params) public pure returns (bytes memory) {
         string memory uriHead = _params.typeUri == TypeURI.IMG
             ? '", "image": "'
             : '", "animation_url": "';
 
         return
-            bytes(
-                Base64.encode(
-                    abi.encodePacked(
-                        '{"name":"',
-                        _params.name,
-                        '", "description":"',
-                        _params.description,
-                        uriHead,
-                        _params.duri,
-                        '"'
-                    ),
-                    false,
-                    // no-padding
-                    true
-                )
+            abi.encodePacked(
+                '{"name":"',
+                _params.name,
+                '", "description":"',
+                _params.description,
+                uriHead,
+                _params.duri,
+                '"'
             );
     }
 
     /// @notice Render content with no added traits.
-    /// @dev Decodes provided URI, appends a closing brace, re-encodes the concatenated result
-    /// into base64. and prepends the data-uri prefix to form a valid data URI.
-    function render(string memory _uri) public pure returns (string memory) {
-        bytes memory decodedUri = Base64.decode(_uri);
+    /// @dev prepends the data-uri prefix and postends closing brace.
+    function render(bytes memory _uri) public pure returns (string memory) {
         return
             string(
                 abi.encodePacked(
-                    bytes("data:application/json;base64,"),
-                    Base64.encode(abi.encodePacked(decodedUri, bytes("}")))
+                    "data:application/json;base64,",
+                    Base64.encode(abi.encodePacked(_uri, "}"))
                 )
             );
     }
 
     /// @notice Render content with added traits.
-    /// @dev Decode the given base64-encoded URI, concatenate it with the data-uri json prefix
-    /// and traits, and then re-encode the result into base64.
+    /// @dev prepends data-uri prefix and postends traits and closing brace.
     function renderWithTraits(
         uint256 _emissionMultiple,
-        string memory _uri
+        bytes memory _uri
     ) public pure returns (string memory) {
         return
             string(
                 abi.encodePacked(
-                    bytes("data:application/json;base64,"),
+                    "data:application/json;base64,",
                     Base64.encode(
                         abi.encodePacked(
-                            Base64.decode(_uri),
-                            abi.encodePacked(
-                                ', "attributes": [{ "trait_type": "Emission Multiple", "value": "',
-                                _emissionMultiple == 0 ? "0" : _emissionMultiple == 1
-                                    ? "1"
-                                    : _emissionMultiple == 2
-                                    ? "2"
-                                    : _emissionMultiple == 3
-                                    ? "3"
-                                    : _emissionMultiple == 4
-                                    ? "4"
-                                    : _emissionMultiple == 5
-                                    ? "5"
-                                    : _emissionMultiple == 6
-                                    ? "6"
-                                    : "7",
-                                '"}]}'
-                            )
+                            _uri,
+                            ', "attributes": [{ "trait_type": "Emission Multiple", "value": "',
+                            _emissionMultiple.toString(),
+                            '"}]}'
                         )
                     )
                 )
@@ -126,7 +100,7 @@ library NFTMeta {
     }
 
     function generateBaseSvg(uint256 _num) public pure returns (string memory) {
-        string memory num = string.concat(".", _num.toString());
+        bytes memory num = abi.encodePacked(".", _num.toString());
         return
             Base64.encode(
                 abi.encodePacked(

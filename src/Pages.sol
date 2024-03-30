@@ -5,14 +5,13 @@ import {toDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {LinearVRGDA} from "VRGDAs/LinearVRGDA.sol";
 import {SSTORE2} from "solady/utils/SSTORE2.sol";
 
-import {PagesERC721} from "./utils/token/PagesERC721.sol";
-
 import {Goo} from "./Goo.sol";
 import {Ocmeme} from "./Ocmeme.sol";
 import {NFTMeta} from "./libraries/NFTMeta.sol";
+import {PagesERC721} from "./utils/token/PagesERC721.sol";
 
 /// @title Pages NFT
-/// @author smarsx @_smarsx
+/// @author smarsx.eth
 /// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Pages.sol)
 /// @notice Pages is an ERC721 with extra metadata. (royalty, votes, pointer (data))
 contract Pages is PagesERC721, LinearVRGDA {
@@ -111,6 +110,10 @@ contract Pages is PagesERC721, LinearVRGDA {
     /// @notice Map pageIds to metadata
     mapping(uint256 => Metadata) public metadatas;
 
+    function GetMetadata(uint256 _pageID) public view returns (Metadata memory _metadata) {
+        _metadata = metadatas[_pageID];
+    }
+
     /// @notice Set royalty and SSTORE2 pointer for page.
     /// @dev Reverts if pointer is already set.
     /// @dev Called in Ocmeme.Submit()
@@ -121,8 +124,7 @@ contract Pages is PagesERC721, LinearVRGDA {
         address _pointer
     ) external only(address(ocmeme)) {
         if (metadatas[_pageID].pointer != address(0)) revert Used();
-        metadatas[_pageID].royalty = uint96(_royalty);
-        metadatas[_pageID].pointer = _pointer;
+        metadatas[_pageID] = Metadata({pointer: _pointer, royalty: uint96(_royalty)});
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -210,6 +212,6 @@ contract Pages is PagesERC721, LinearVRGDA {
         if (pageID == 0 || pageID > currentId) revert("NOT_MINTED");
         if (metadatas[pageID].pointer == address(0)) revert("NOT_SET");
 
-        return NFTMeta.render(string(SSTORE2.read(metadatas[pageID].pointer)));
+        return NFTMeta.render(SSTORE2.read(metadatas[pageID].pointer));
     }
 }

@@ -110,7 +110,7 @@ contract MainInvariantTest is Test {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
             uint256[] memory pageIds = ocmeme.submissions(i);
-            assertTrue(pageIds.length < ocmeme.MAX_SUBMISSIONS());
+            assertTrue(pageIds.length <= ocmeme.MAX_SUBMISSIONS());
         }
     }
 

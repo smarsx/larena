@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 
 /// @notice ERC721 implementation optimized for ocmeme by packing balanceOf/ownerOf with user/attribute data.
-/// @author smarsx @_smarsx
+/// @author smarsx.eth
 /// @author Modified from Art-Gobblers. (https://github.com/artgobblers/art-gobblers/blob/master/src/utils/token/GobblersERC721.sol)
 /// @author Modified from Solmate. (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC721.sol)
 abstract contract OcmemeERC721 {
