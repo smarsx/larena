@@ -20,7 +20,7 @@ contract RecoverIntegrationTest is Test {
     Reserve internal reserve;
     Utilities internal utils;
     address[] internal users;
-    uint256 eventID;
+    uint256 epochID;
 
     function setUp() public {
         utils = new Utilities();
@@ -41,7 +41,7 @@ contract RecoverIntegrationTest is Test {
         vm.prank(ocmeme.owner());
         ocmeme.setStart();
 
-        (eventID, ) = ocmeme.currentEpoch();
+        (epochID, ) = ocmeme.currentEpoch();
         for (uint i; i < users.length; i++) {
             address user = users[i];
 
@@ -69,13 +69,13 @@ contract RecoverIntegrationTest is Test {
 
         ocmeme.vaultMint();
 
-        // warp past event
+        // warp past epoch
         vm.warp(block.timestamp + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
     }
 
     function testTime(uint40 _time) public {
-        uint256 start = ocmeme.epochStart(eventID);
+        uint256 start = ocmeme.epochStart(epochID);
         uint256 rd = start + ocmeme.RECOVERY_PERIOD();
         vm.assume(_time < rd);
         vm.assume(_time > 2);
@@ -83,26 +83,26 @@ contract RecoverIntegrationTest is Test {
 
         vm.startPrank(address(ocmeme.owner()));
         vm.expectRevert(Ocmeme.InvalidTime.selector);
-        ocmeme.recoverPayout(eventID);
+        ocmeme.recoverPayout(epochID);
         vm.stopPrank();
     }
 
     function testDeleteRecovery(uint40 _time) public {
-        uint256 start = ocmeme.epochStart(eventID);
+        uint256 start = ocmeme.epochStart(epochID);
         vm.warp(start + ocmeme.RECOVERY_PERIOD() + _time);
 
         vm.startPrank(address(ocmeme.owner()));
         ocmeme.deleteRecovery();
 
         vm.expectRevert(Ocmeme.RecoveryLocked.selector);
-        ocmeme.recoverPayout(eventID);
+        ocmeme.recoverPayout(epochID);
         vm.stopPrank();
     }
 
     function testRecoverPayout(uint256 _seed) public {
         uint256 idx = _seed % 4;
         address vault = ocmeme.vault();
-        Ocmeme.Epoch memory e = ocmeme.epochs(eventID);
+        Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
 
         address winner;
         uint256 winnerbal;
@@ -111,24 +111,24 @@ contract RecoverIntegrationTest is Test {
             winner = pages.ownerOf(e.goldPageID);
             winnerbal = address(winner).balance;
             vm.prank(winner);
-            ocmeme.claimGold(eventID);
+            ocmeme.claimGold(epochID);
         } else if (idx == 1) {
             winner = pages.ownerOf(e.silverPageID);
             winnerbal = address(winner).balance;
             vm.prank(winner);
-            ocmeme.claimSilver(eventID);
+            ocmeme.claimSilver(epochID);
         } else if (idx == 2) {
             winner = pages.ownerOf(e.bronzePageID);
             winnerbal = address(winner).balance;
             vm.prank(winner);
-            ocmeme.claimBronze(eventID);
+            ocmeme.claimBronze(epochID);
         }
 
         winnings = address(winner).balance - winnerbal;
         vm.warp(block.timestamp + ocmeme.RECOVERY_PERIOD());
         uint256 b = address(vault).balance;
         vm.prank(ocmeme.owner());
-        ocmeme.recoverPayout(eventID);
+        ocmeme.recoverPayout(epochID);
 
         assertTrue(address(vault).balance == (b + e.proceeds) - winnings);
     }

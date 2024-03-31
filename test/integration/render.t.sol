@@ -23,7 +23,7 @@ contract RenderTest is Test, Content {
 
     address internal user;
     address internal owner;
-    uint256 eventID;
+    uint256 epochID;
 
     error InvalidID();
 
@@ -52,7 +52,7 @@ contract RenderTest is Test, Content {
         vm.prank(owner);
         ocmeme.setStart();
 
-        (eventID, ) = ocmeme.currentEpoch();
+        (epochID, ) = ocmeme.currentEpoch();
         ocmeme.vaultMint();
 
         for (uint i; i < 256; i++) {
@@ -71,7 +71,7 @@ contract RenderTest is Test, Content {
     function testUnrevealedUri(uint8 _tokenID) public {
         vm.assume(_tokenID > 0);
         string memory uri = ocmeme.tokenURI(_tokenID);
-        string memory title = getTitle(eventID);
+        string memory title = getTitle(epochID);
 
         Decoder.DecodedContent memory res = decoder.decodeContent(
             false,
@@ -88,7 +88,7 @@ contract RenderTest is Test, Content {
     function testUri() public {
         string memory expectedSvg = getImg();
         string memory expectedDescription = "ocmeme loader";
-        string memory title = getTitle(eventID);
+        string memory title = getTitle(epochID);
 
         uint256 p = pages.pagePrice();
         vm.prank(address(ocmeme));
@@ -99,7 +99,7 @@ contract RenderTest is Test, Content {
         vm.prank(user);
         ocmeme.submit(pageID, 0, NFTMeta.TypeURI(0), expectedDescription, expectedSvg);
 
-        uint256 start = ocmeme.epochStart(eventID);
+        uint256 start = ocmeme.epochStart(epochID);
         vm.warp(start + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
 
@@ -120,7 +120,7 @@ contract RenderTest is Test, Content {
     function testUriHtml() public {
         string memory expectedAni = getAnimation();
         string memory expectedDescription = "ocmeme loader";
-        string memory title = getTitle(eventID);
+        string memory title = getTitle(epochID);
 
         uint256 p = pages.pagePrice();
 
@@ -132,7 +132,7 @@ contract RenderTest is Test, Content {
         vm.prank(user);
         ocmeme.submit(pageID, 0, NFTMeta.TypeURI(1), expectedDescription, expectedAni);
 
-        uint256 start = ocmeme.epochStart(eventID);
+        uint256 start = ocmeme.epochStart(epochID);
         vm.warp(start + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
 

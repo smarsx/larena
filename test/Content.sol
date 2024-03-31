@@ -209,7 +209,7 @@ contract Content {
         return ret;
     }
 
-    function getTitle(uint256 _eventID) internal pure returns (string memory _title) {
-        _title = string.concat("OCmeme #", _eventID.toString());
+    function getTitle(uint256 _epochID) internal pure returns (string memory _title) {
+        _title = string.concat("OCmeme #", _epochID.toString());
     }
 }

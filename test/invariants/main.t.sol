@@ -96,7 +96,7 @@ contract MainInvariantTest is Test {
         assertTrue(address(ocmeme).balance >= credits);
     }
 
-    // each event.count < max_supply
+    // each epoch.count < max_supply
     function invariant_supply() public view {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
@@ -105,7 +105,7 @@ contract MainInvariantTest is Test {
         }
     }
 
-    // each event.pages.length < max_submissions
+    // each epoch.pages.length < max_submissions
     function invariant_pages() public view {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
@@ -114,7 +114,7 @@ contract MainInvariantTest is Test {
         }
     }
 
-    // sum events.count = tokenid
+    // sum epoch.count = tokenid
     function invariant_tokenId() public view {
         uint256 sumCount;
         (uint256 maxid, ) = ocmeme.currentEpoch();

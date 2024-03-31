@@ -154,24 +154,24 @@ contract MainActor is CommonBase, StdCheats, StdUtils {
     }
 
     function claim(uint256 _seed) public virtual countCall("claim") {
-        (uint256 maxEventID, ) = ocmeme.currentEpoch();
-        uint256 eventID = _seed % maxEventID;
-        if (eventID > 0) {
+        (uint256 maxepochID, ) = ocmeme.currentEpoch();
+        uint256 epochID = _seed % maxepochID;
+        if (epochID > 0) {
             uint256 claimType = _seed % 3;
-            Ocmeme.Epoch memory e = ocmeme.epochs(eventID);
+            Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
             if (e.goldPageID > 0) {
                 if (claimType == 0) {
                     address owner = pages.ownerOf(e.goldPageID);
                     vm.prank(owner);
-                    ocmeme.claimGold(eventID);
+                    ocmeme.claimGold(epochID);
                 } else if (claimType == 1) {
                     address owner = pages.ownerOf(e.silverPageID);
                     vm.prank(owner);
-                    ocmeme.claimSilver(eventID);
+                    ocmeme.claimSilver(epochID);
                 } else if (claimType == 2) {
                     address owner = pages.ownerOf(e.bronzePageID);
                     vm.prank(owner);
-                    ocmeme.claimBronze(eventID);
+                    ocmeme.claimBronze(epochID);
                 }
             }
         }

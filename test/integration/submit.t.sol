@@ -64,8 +64,8 @@ contract SubmitIntegrationTest is Test {
         vm.startPrank(actor);
         uint256 pageID = pages.mintFromGoo(price, false);
 
-        (uint256 eventID, ) = ocmeme.currentEpoch();
-        uint256 start = ocmeme.epochStart(eventID);
+        (uint256 epochID, ) = ocmeme.currentEpoch();
+        uint256 start = ocmeme.epochStart(epochID);
 
         if (block.timestamp - start > ocmeme.ACTIVE_PERIOD()) {
             vm.expectRevert(Ocmeme.InvalidTime.selector);

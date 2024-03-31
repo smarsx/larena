@@ -10,7 +10,7 @@ import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 
-contract EventIntegrationTest is Test {
+contract EpochIntegrationTest is Test {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -42,9 +42,9 @@ contract EventIntegrationTest is Test {
         _warp = bound(_warp, 1, type(uint48).max);
         vm.warp(_warp);
 
-        (uint256 eventID, uint256 start) = ocmeme.currentEpoch();
+        (uint256 epochID, uint256 start) = ocmeme.currentEpoch();
 
-        assertTrue(eventID > 0);
+        assertTrue(epochID > 0);
         assertTrue(start >= ocmeme.start());
     }
 }

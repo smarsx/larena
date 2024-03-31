@@ -42,7 +42,7 @@ contract MintIntegrationTest is Test {
         bound(_amt, 1, 200);
         Ocmeme.Epoch memory e;
         uint256 amt = 100;
-        (uint256 eventID, ) = ocmeme.currentEpoch();
+        (uint256 epochID, ) = ocmeme.currentEpoch();
 
         for (uint i; i < amt; i++) {
             uint256 p = ocmeme.getPrice();
@@ -51,13 +51,13 @@ contract MintIntegrationTest is Test {
             ocmeme.mint{value: p}();
         }
 
-        e = ocmeme.epochs(eventID);
+        e = ocmeme.epochs(epochID);
         assertEq(amt, e.count);
         assertEq(amt, ocmeme.prevTokenID());
 
         ocmeme.vaultMint();
 
-        e = ocmeme.epochs(eventID);
+        e = ocmeme.epochs(epochID);
         assertEq(amt + ocmeme.VAULT_NUM(), e.count);
         assertEq(amt + ocmeme.VAULT_NUM(), ocmeme.prevTokenID());
 
@@ -68,15 +68,15 @@ contract MintIntegrationTest is Test {
             ocmeme.mint{value: p}();
         }
 
-        e = ocmeme.epochs(eventID);
+        e = ocmeme.epochs(epochID);
         assertEq(amt + amt + ocmeme.VAULT_NUM(), e.count);
         assertEq(amt + amt + ocmeme.VAULT_NUM(), ocmeme.prevTokenID());
     }
 
     function testDeath(uint256 _warp) public {
         bound(_warp, 10 * 52 weeks, type(uint256).max);
-        (uint256 eventID, ) = ocmeme.currentEpoch();
-        if (eventID > 125) {
+        (uint256 epochID, ) = ocmeme.currentEpoch();
+        if (epochID > 125) {
             vm.expectRevert();
             ocmeme.getPrice();
 

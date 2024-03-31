@@ -40,13 +40,13 @@ contract WinnersIntegrationTest is Test {
         ocmeme.setStart();
     }
 
-    function testInitialEvent() public {
+    function testInitialepoch() public {
         vm.expectRevert(stdError.indexOOBError);
         ocmeme.crownWinners();
     }
 
     function testClaim() public {
-        (uint256 eventID, ) = ocmeme.currentEpoch();
+        (uint256 epochID, ) = ocmeme.currentEpoch();
 
         // make submissions
         for (uint i; i < 5; i++) {
@@ -71,11 +71,11 @@ contract WinnersIntegrationTest is Test {
             ocmeme.mint{value: mprice}();
         }
 
-        // warp past event
+        // warp past epoch
         vm.warp(block.timestamp + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
 
-        Ocmeme.Epoch memory e = ocmeme.epochs(eventID);
+        Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
 
         uint256 a = FixedPointMathLib.mulDiv(
             e.proceeds,
@@ -111,25 +111,25 @@ contract WinnersIntegrationTest is Test {
 
         vm.startPrank(actor);
         uint256 bal = address(actor).balance;
-        ocmeme.claimGold(eventID);
+        ocmeme.claimGold(epochID);
         assertEq(bal + a, address(actor).balance);
 
         bal = address(actor).balance;
-        ocmeme.claimSilver(eventID);
+        ocmeme.claimSilver(epochID);
         assertEq(bal + b, address(actor).balance);
 
         bal = address(actor).balance;
-        ocmeme.claimBronze(eventID);
+        ocmeme.claimBronze(epochID);
         assertEq(bal + c, address(actor).balance);
 
         bal = address(reserve).balance;
-        ocmeme.claimVault(eventID);
+        ocmeme.claimVault(epochID);
         assertEq(bal + d, address(reserve).balance);
         vm.stopPrank();
     }
 
     function testDupClaim() public {
-        (uint256 eventID, ) = ocmeme.currentEpoch();
+        (uint256 epochID, ) = ocmeme.currentEpoch();
 
         // make submissions
         for (uint i; i < 5; i++) {
@@ -154,26 +154,26 @@ contract WinnersIntegrationTest is Test {
             ocmeme.mint{value: mprice}();
         }
 
-        // warp past event
+        // warp past epoch
         vm.warp(block.timestamp + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
 
         vm.startPrank(actor);
-        ocmeme.claimGold(eventID);
+        ocmeme.claimGold(epochID);
         vm.expectRevert(Ocmeme.DuplicateClaim.selector);
-        ocmeme.claimGold(eventID);
+        ocmeme.claimGold(epochID);
 
-        ocmeme.claimSilver(eventID);
+        ocmeme.claimSilver(epochID);
         vm.expectRevert(Ocmeme.DuplicateClaim.selector);
-        ocmeme.claimSilver(eventID);
+        ocmeme.claimSilver(epochID);
 
-        ocmeme.claimBronze(eventID);
+        ocmeme.claimBronze(epochID);
         vm.expectRevert(Ocmeme.DuplicateClaim.selector);
-        ocmeme.claimBronze(eventID);
+        ocmeme.claimBronze(epochID);
 
-        ocmeme.claimVault(eventID);
+        ocmeme.claimVault(epochID);
         vm.expectRevert(Ocmeme.DuplicateClaim.selector);
-        ocmeme.claimVault(eventID);
+        ocmeme.claimVault(epochID);
 
         vm.stopPrank();
     }
