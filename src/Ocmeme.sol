@@ -449,15 +449,15 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     /// @dev used to pack timestamp into same slot that is loaded in Vote()
     /// @dev can be called anytime, best after deadzone start so no new submissions.
     /// @dev if never set, dz is simply ignored in Vote()
-    function setVoteDeadzone() public {
+    function setVoteDeadzone() external {
         (uint256 epochID, uint256 estart) = currentEpoch();
         uint48 dztime = uint48(estart + ACTIVE_PERIOD);
 
-        uint256[] memory lpages = $submissions[epochID];
-        uint256 len = lpages.length;
+        uint256[] memory subs = $submissions[epochID];
+        uint256 len = subs.length;
 
         for (uint256 i; i < len; i++) {
-            $votes[lpages[i]].dztime = dztime;
+            $votes[subs[i]].dztime = dztime;
         }
         emit SetVoteDeadzone(epochID, dztime);
     }
@@ -468,6 +468,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         Epoch memory e = $epochs[epochID];
         if (uint256(e.count) + VAULT_NUM > SUPPLY_PER_EPOCH) revert MaxSupply();
         if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
+        if (epochID > 97) revert();
 
         $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
         $epochs[epochID].count += uint16(VAULT_NUM);
