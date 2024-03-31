@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {console2 as console} from "forge-std/console2.sol";
 import {stdError} from "forge-std/StdError.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
@@ -11,14 +12,17 @@ import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
+import {MemoryPlus} from "../utils/Memory.sol";
+import {GasHelpers} from "../utils/GasHelper.t.sol";
 
-contract WinnersIntegrationTest is Test {
+contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
     address actor;
+    address[] actors;
 
     function setUp() public {
         utils = new Utilities();
@@ -35,6 +39,7 @@ contract WinnersIntegrationTest is Test {
         pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
         ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
         actor = utils.createUsers(1, vm)[0];
+        actors = utils.createUsers(10, vm);
 
         vm.prank(ocmeme.owner());
         ocmeme.setStart();
@@ -45,7 +50,7 @@ contract WinnersIntegrationTest is Test {
         ocmeme.crownWinners();
     }
 
-    function testClaim() public {
+    function testClaim() public brutalizeMemory {
         (uint256 epochID, ) = ocmeme.currentEpoch();
 
         // make submissions
@@ -128,7 +133,7 @@ contract WinnersIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    function testDupClaim() public {
+    function testDupClaim() public brutalizeMemory {
         (uint256 epochID, ) = ocmeme.currentEpoch();
 
         // make submissions
@@ -176,5 +181,29 @@ contract WinnersIntegrationTest is Test {
         ocmeme.claimVault(epochID);
 
         vm.stopPrank();
+    }
+
+    function testCrownWinnerMaxGas() public {
+        uint256 max = ocmeme.MAX_SUBMISSIONS();
+        for (uint256 i; i < max; i++) {
+            address act = actors[i % actors.length];
+            uint256 price = pages.pagePrice();
+
+            vm.prank(address(ocmeme));
+            goo.mintGoo(act, price + i);
+
+            vm.startPrank(address(act));
+            uint256 pageID = pages.mintFromGoo(price, false);
+            ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+            ocmeme.vote(pageID, i, false);
+            vm.stopPrank();
+        }
+
+        vm.warp(block.timestamp + ocmeme.EPOCH_LENGTH());
+
+        startMeasuringGas("x");
+        ocmeme.crownWinners();
+        uint256 gas = stopMeasuringGas();
+        console.log(gas);
     }
 }

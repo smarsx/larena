@@ -12,8 +12,9 @@ import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
+import {MemoryPlus} from "../utils/Memory.sol";
 
-contract RecoverIntegrationTest is Test {
+contract RecoverIntegrationTest is Test, MemoryPlus {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -99,7 +100,7 @@ contract RecoverIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    function testRecoverPayout(uint256 _seed) public {
+    function testRecoverPayout(uint256 _seed) public brutalizeMemory {
         uint256 idx = _seed % 4;
         address vault = ocmeme.vault();
         Ocmeme.Epoch memory e = ocmeme.epochs(epochID);

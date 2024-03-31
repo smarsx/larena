@@ -19,8 +19,8 @@ include_push_bytes = true
 
 # fuzz settings
 [profile.default.fuzz]
-runs=5000
+runs=10000
 
 [rpc_endpoints]
-base-sepolia = "https://base-mainnet.g.alchemy.com/v2/${BASE_SEPOLIA_RPC_KEY}"
 base = "https://base-mainnet.g.alchemy.com/v2/${BASE_RPC_KEY}"
+base-sepolia = "https://base-sepolia.g.alchemy.com/v2/${BASE_SEPOLIA_RPC_KEY}"

@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {GasHelpers} from "../utils/GasHelper.t.sol";
-
+import {MemoryPlus} from "../utils/Memory.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 
-contract OptimizationsTest is Test, GasHelpers {
+contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
     uint256 public constant EPOCH_LENGTH = 30 days;
     uint256 public constant SLOT = 34;
     address $xaddr = address(0x77);
@@ -68,7 +68,7 @@ contract OptimizationsTest is Test, GasHelpers {
         assertEq(util, utilBranched);
     }
 
-    function testVariousBitMasking(uint8 z) public pure {
+    function testVariousBitMasking(uint8 z) public view brutalizeMemory {
         uint8 idx = uint8(z % 3);
         uint8 idx2 = idx % 2 == 0 ? uint8(1) : uint8(2);
 
@@ -116,7 +116,7 @@ contract OptimizationsTest is Test, GasHelpers {
         }
     }
 
-    function testDzCondition(uint256 _dz, uint48 _warp) public {
+    function testDzCondition(uint256 _dz, uint48 _warp) public brutalizeMemory {
         vm.warp(_warp);
 
         uint256 c;
@@ -146,7 +146,7 @@ contract OptimizationsTest is Test, GasHelpers {
         assertTrue(_goo <= type(uint256).max / _share);
     }
 
-    function testStart() public {
+    function testStart() public brutalizeMemory {
         $allowRecovery = 1;
 
         uint256 start;
@@ -156,7 +156,7 @@ contract OptimizationsTest is Test, GasHelpers {
         assertEq(start, 0);
     }
 
-    function testWrite(uint32 x) public {
+    function testWrite(uint32 x) public brutalizeMemory {
         $start = x;
         uint32 start;
         assembly {

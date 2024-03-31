@@ -10,8 +10,9 @@ import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
+import {MemoryPlus} from "../utils/Memory.sol";
 
-contract VoteIntegrationTest is Test {
+contract VoteIntegrationTest is Test, MemoryPlus {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -99,7 +100,7 @@ contract VoteIntegrationTest is Test {
         }
     }
 
-    function voteDeadzone() public {
+    function voteDeadzone() public brutalizeMemory {
         // doesn't matter when this is called.
         // as long as it's post-submission
         ocmeme.setVoteDeadzone();

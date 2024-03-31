@@ -78,8 +78,8 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     uint32 $start;
 
     /// @notice Allow recovery of assets.
-    /// @dev initialized to 1, if flipped, cannot be changed.
-    uint8 $allowRecovery;
+    /// @dev initialized to 1, when zeroed, cannot be changed.
+    uint8 $allowRecovery = 1;
 
     /// @notice The url to access ocmeme uri.
     /// @dev BaseURI takes precedence over on-chain render in tokenURI.
@@ -220,7 +220,6 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         $goo = _goo;
         $pages = _pages;
         $vault = _vault;
-        $allowRecovery = 1;
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -12,8 +12,9 @@ import {Goo} from "../../src/Goo.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Decoder} from "../utils/Decoder.sol";
+import {MemoryPlus} from "../utils/Memory.sol";
 
-contract RenderTest is Test, Content {
+contract RenderTest is Test, Content, MemoryPlus {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -70,8 +71,9 @@ contract RenderTest is Test, Content {
 
     function testUnrevealedUri(uint8 _tokenID) public {
         vm.assume(_tokenID > 0);
-        string memory uri = ocmeme.tokenURI(_tokenID);
         string memory title = getTitle(epochID);
+        string memory uri = ocmeme.tokenURI(_tokenID);
+        _checkMemory(uri);
 
         Decoder.DecodedContent memory res = decoder.decodeContent(
             false,
@@ -104,6 +106,8 @@ contract RenderTest is Test, Content {
         ocmeme.crownWinners();
 
         string memory uri = ocmeme.tokenURI(1);
+        _checkMemory(uri);
+
         Decoder.DecodedContent memory res = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.IMG,
@@ -137,6 +141,8 @@ contract RenderTest is Test, Content {
         ocmeme.crownWinners();
 
         string memory uri = ocmeme.tokenURI(1);
+        _checkMemory(uri);
+
         Decoder.DecodedContent memory res = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.ANIMATION,

@@ -16,6 +16,7 @@ docs/
 .vscode/
 script/*.s.sol
 script/interfaces/
+broadcast/
 bash/
 temp/*
 .prettierignore
