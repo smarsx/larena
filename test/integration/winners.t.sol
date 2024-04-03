@@ -14,8 +14,9 @@ import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
 import {GasHelpers} from "../utils/GasHelper.t.sol";
+import {Interfaces} from "../utils/Interfaces.sol";
 
-contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus {
+contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -80,7 +81,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus {
         vm.warp(block.timestamp + ocmeme.EPOCH_LENGTH());
         ocmeme.crownWinners();
 
-        Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
+        Ocmeme.Epoch memory e = getEpochs(epochID, ocmeme);
 
         uint256 a = FixedPointMathLib.mulDiv(
             e.proceeds,

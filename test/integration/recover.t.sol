@@ -13,8 +13,9 @@ import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
+import {Interfaces} from "../utils/Interfaces.sol";
 
-contract RecoverIntegrationTest is Test, MemoryPlus {
+contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -102,8 +103,8 @@ contract RecoverIntegrationTest is Test, MemoryPlus {
 
     function testRecoverPayout(uint256 _seed) public brutalizeMemory {
         uint256 idx = _seed % 4;
-        address vault = ocmeme.vault();
-        Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
+        address vault = ocmeme.$vault();
+        Ocmeme.Epoch memory e = getEpochs(epochID, ocmeme);
 
         address winner;
         uint256 winnerbal;

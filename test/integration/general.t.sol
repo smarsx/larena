@@ -100,13 +100,13 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
     function currentEpochBasic() internal view returns (uint256, uint256) {
         uint256 epochID;
         uint256 start;
-        epochID = block.timestamp - ocmeme.start();
+        epochID = block.timestamp - ocmeme.$start();
         epochID = epochID / ocmeme.EPOCH_LENGTH();
         epochID = epochID + 1;
 
         start = epochID - 1;
         start = start * ocmeme.EPOCH_LENGTH();
-        start = start + ocmeme.start();
+        start = start + ocmeme.$start();
         return (epochID, start);
     }
 }

@@ -11,8 +11,9 @@ import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
+import {Interfaces} from "../utils/Interfaces.sol";
 
-contract VoteIntegrationTest is Test, MemoryPlus {
+contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -58,7 +59,7 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         vm.assume(_warp < ocmeme.EPOCH_LENGTH());
         vm.warp(block.timestamp + _warp);
 
-        Ocmeme.VotePair memory vp = ocmeme.votes(pageID);
+        Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
 
         vm.prank(address(ocmeme));
         goo.mintGoo(actor, _amt);
@@ -66,7 +67,7 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         vm.prank(actor);
         ocmeme.vote(pageID, _amt, false);
 
-        Ocmeme.VotePair memory vp2 = ocmeme.votes(pageID);
+        Ocmeme.Vote memory vp2 = getVotes(pageID, ocmeme);
 
         assertEq(vp.votes + _amt, vp2.votes);
     }
@@ -77,13 +78,13 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         vm.warp(block.timestamp + _warp);
 
         (, uint256 start) = ocmeme.currentEpoch();
-        bool isdz = block.timestamp - start > ocmeme.ACTIVE_PERIOD();
+        bool isdz = block.timestamp - start > ocmeme.SDEADZONE();
 
         // doesn't matter when this is called.
         // as long as it's post submission
         ocmeme.setVoteDeadzone();
 
-        Ocmeme.VotePair memory vp = ocmeme.votes(pageID);
+        Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
 
         vm.prank(address(ocmeme));
         goo.mintGoo(actor, _amt);
@@ -91,7 +92,7 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         vm.prank(actor);
         ocmeme.vote(pageID, _amt, false);
 
-        Ocmeme.VotePair memory vp2 = ocmeme.votes(pageID);
+        Ocmeme.Vote memory vp2 = getVotes(pageID, ocmeme);
 
         if (isdz) {
             assertTrue(vp.votes + _amt > vp2.votes);
@@ -101,12 +102,10 @@ contract VoteIntegrationTest is Test, MemoryPlus {
     }
 
     function voteDeadzone() public brutalizeMemory {
-        // doesn't matter when this is called.
-        // as long as it's post-submission
         ocmeme.setVoteDeadzone();
 
         (, uint256 start) = ocmeme.currentEpoch();
-        vm.warp(start + ocmeme.ACTIVE_PERIOD() + 1 hours);
+        vm.warp(start + ocmeme.SDEADZONE() + 1 hours);
 
         vm.prank(address(ocmeme));
         goo.mintGoo(actor, 100 ether);
@@ -115,10 +114,10 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         for (uint i; i < 5; i++) {
             vm.warp(block.timestamp + (i * 6 * 1 hours));
 
-            Ocmeme.VotePair memory vp = ocmeme.votes(pageID);
+            Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
             vm.prank(actor);
             ocmeme.vote(pageID, 1 ether, false);
-            Ocmeme.VotePair memory vp2 = ocmeme.votes(pageID);
+            Ocmeme.Vote memory vp2 = getVotes(pageID, ocmeme);
 
             diffs[i] = (vp2.votes - vp.votes);
         }
@@ -127,5 +126,26 @@ contract VoteIntegrationTest is Test, MemoryPlus {
         assertTrue(diffs[1] < diffs[2]);
         assertTrue(diffs[2] < diffs[3]);
         assertTrue(diffs[3] < diffs[4]);
+    }
+
+    function voteDeadzone2(uint32 _warp, uint192 amt) public brutalizeMemory {
+        bound(_warp, 1, 97 * ocmeme.EPOCH_LENGTH());
+        vm.warp(_warp);
+
+        (, uint256 start) = ocmeme.currentEpoch();
+        ocmeme.setVoteDeadzone();
+
+        vm.prank(address(ocmeme));
+        goo.mintGoo(actor, amt);
+
+        Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
+        ocmeme.vote(pageID, amt, false);
+        Ocmeme.Vote memory vp2 = getVotes(pageID, ocmeme);
+
+        if (block.timestamp > start + ocmeme.VDEADZONE()) {
+            assertTrue(vp2.votes - vp.votes < amt);
+        } else {
+            assertEq(vp2.votes - vp.votes, amt);
+        }
     }
 }

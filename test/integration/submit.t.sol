@@ -67,7 +67,7 @@ contract SubmitIntegrationTest is Test {
         (uint256 epochID, ) = ocmeme.currentEpoch();
         uint256 start = ocmeme.epochStart(epochID);
 
-        if (block.timestamp - start > ocmeme.ACTIVE_PERIOD()) {
+        if (block.timestamp - start > ocmeme.SDEADZONE()) {
             vm.expectRevert(Ocmeme.InvalidTime.selector);
             ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         } else {

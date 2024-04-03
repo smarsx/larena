@@ -12,8 +12,9 @@ import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {MainActor} from "./actors/mainActor.sol";
 import {Utilities} from "../utils/Utilities.sol";
+import {Interfaces} from "../utils/Interfaces.sol";
 
-contract MainInvariantTest is Test {
+contract MainInvariantTest is Test, Interfaces {
     Ocmeme public ocmeme;
     MainActor public actor;
 
@@ -74,7 +75,7 @@ contract MainInvariantTest is Test {
         uint256 d = ocmeme.PAYOUT_DENOMINATOR();
         uint256 credits;
         for (uint256 i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
             uint256 goldClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.GOLD));
             uint256 silverClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.SILVER));
             uint256 bronzeClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.BRONZE));
@@ -100,7 +101,7 @@ contract MainInvariantTest is Test {
     function invariant_supply() public view {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
             assertTrue(e.count <= ocmeme.SUPPLY_PER_EPOCH());
         }
     }
@@ -109,7 +110,7 @@ contract MainInvariantTest is Test {
     function invariant_pages() public view {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            uint256[] memory pageIds = ocmeme.submissions(i);
+            uint256[] memory pageIds = ocmeme.getSubmissions(i);
             assertTrue(pageIds.length <= ocmeme.MAX_SUBMISSIONS());
         }
     }
@@ -119,14 +120,14 @@ contract MainInvariantTest is Test {
         uint256 sumCount;
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
             sumCount += uint256(e.count);
         }
-        assertEq(uint256(ocmeme.prevTokenID()), sumCount);
+        assertEq(uint256(ocmeme.$prevTokenID()), sumCount);
     }
 
     function invariant_meme_accounting() public view {
-        uint256 maxTokenId = ocmeme.prevTokenID();
+        uint256 maxTokenId = ocmeme.$prevTokenID();
         address[] memory users = actor.getUsers();
 
         uint32[] memory emissions = new uint32[](maxTokenId + 1);
@@ -170,7 +171,7 @@ contract MainInvariantTest is Test {
     function invariant_no_claims() public view {
         uint256[] memory recoveries = actor.getRecoveries();
         for (uint i; i < recoveries.length; i++) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
             uint256 goldClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.GOLD));
             uint256 silverClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.SILVER));
             uint256 bronzeClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.BRONZE));
@@ -185,7 +186,7 @@ contract MainInvariantTest is Test {
     function invariant_winners() public view {
         (uint256 maxid, ) = ocmeme.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(i);
+            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
             if (e.goldPageID > 0) {
                 uint256 gold;
                 uint256 silver;
@@ -193,9 +194,9 @@ contract MainInvariantTest is Test {
                 uint256 goldIdx;
                 uint256 silverIdx;
                 uint256 bronzeIdx;
-                uint256[] memory pageIDs = ocmeme.submissions(i);
+                uint256[] memory pageIDs = ocmeme.getSubmissions(i);
                 for (uint256 j; j < pageIDs.length; j++) {
-                    Ocmeme.VotePair memory v = ocmeme.votes(j);
+                    Ocmeme.Vote memory v = getVotes(j, ocmeme);
                     if (v.votes > gold) {
                         // silver -> bronze
                         bronze = silver;
@@ -230,7 +231,7 @@ contract MainInvariantTest is Test {
     function invariant_death() public view {
         (uint256 epochid, ) = ocmeme.currentEpoch();
         if (epochid > 125) {
-            Ocmeme.Epoch memory e = ocmeme.epochs(epochid);
+            Ocmeme.Epoch memory e = getEpochs(epochid, ocmeme);
             assertEq(e.proceeds, 0);
             assertEq(e.count, 0);
         }

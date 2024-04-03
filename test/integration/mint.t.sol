@@ -9,8 +9,9 @@ import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
+import {Interfaces} from "../utils/Interfaces.sol";
 
-contract MintIntegrationTest is Test {
+contract MintIntegrationTest is Test, Interfaces {
     Ocmeme ocmeme;
     Goo internal goo;
     Pages internal pages;
@@ -51,15 +52,15 @@ contract MintIntegrationTest is Test {
             ocmeme.mint{value: p}();
         }
 
-        e = ocmeme.epochs(epochID);
+        e = getEpochs(epochID, ocmeme);
         assertEq(amt, e.count);
-        assertEq(amt, ocmeme.prevTokenID());
+        assertEq(amt, ocmeme.$prevTokenID());
 
         ocmeme.vaultMint();
 
-        e = ocmeme.epochs(epochID);
+        e = getEpochs(epochID, ocmeme);
         assertEq(amt + ocmeme.VAULT_NUM(), e.count);
-        assertEq(amt + ocmeme.VAULT_NUM(), ocmeme.prevTokenID());
+        assertEq(amt + ocmeme.VAULT_NUM(), ocmeme.$prevTokenID());
 
         for (uint i; i < amt; i++) {
             uint256 p = ocmeme.getPrice();
@@ -68,9 +69,9 @@ contract MintIntegrationTest is Test {
             ocmeme.mint{value: p}();
         }
 
-        e = ocmeme.epochs(epochID);
+        e = getEpochs(epochID, ocmeme);
         assertEq(amt + amt + ocmeme.VAULT_NUM(), e.count);
-        assertEq(amt + amt + ocmeme.VAULT_NUM(), ocmeme.prevTokenID());
+        assertEq(amt + amt + ocmeme.VAULT_NUM(), ocmeme.$prevTokenID());
     }
 
     function testDeath(uint256 _warp) public {

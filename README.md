@@ -13,18 +13,21 @@ Live at ocmeme.com
 | Base          |[0x000000000005b7e7a344d73d7a1f0b6bb89ff355](https://basescan.org/address/0x000000000005b7e7a344d73d7a1f0b6bb89ff355)|
 | Base-sepolia  |[0x000000000005b7e7a344d73d7a1f0b6bb89ff355](https://basescan.org/address/0x000000000005b7e7a344d73d7a1f0b6bb89ff355)|
 
+## Note
+
+This document is not a complete or exhaustive source. At this moment the best source of information is the contracts themselves. Most of the logic is in Ocmeme.sol.
 
 ## Epoch
 
 - a continuous loop of 30-day epochs create the game loop
-- once an epoch has concluded, votes are tallied, winners are crowned, and minting/submitting is opened for the next epoch
+- once an epoch has concluded, votes are tallied, winners are crowned, and minting/submitting/voting is opened for the next epoch
 
 ## Tokens
 
 ### Ocmeme
 
 - ERC-721 priced on logistic [VRGDA](https://www.paradigm.xyz/2022/08/vrgda#logistic-issuance-schedule) curve
-- Max 500 per epoch
+- 500 available per epoch, decreasing with each epoch.
 - minted with ether
 - given an emission multiple for continuous lazy $GOO emission (see $GOO)
 - when epoch concludes, metadata is inherited from top-voted submission
@@ -62,7 +65,7 @@ function mint() external payable {
 }
 ```
 
-- main entry point to game
+- the main entry point to ocmeme's
 - minting an Ocmeme gives you a constant emission of $GOO, which is then used to mint and vote on $PAGES
 - when epoch concludes tokenURI becomes top-voted page
 - any funds paid > price are auto-refunded
@@ -99,8 +102,9 @@ function submit(
 ### Vote
 
 - use $GOO to vote on $PAGES
-- voting burns $GOO
-- to avoid gas in the vote function, there are no safeguards, voting for an invalid pageID is allowed
+- voting burns $GOO used
+- to avoid gas in the vote function, there are few safeguards, voting for an invalid pageID is allowed
+- in the hours preceeding end of epoch, there is a penalty applied to votes.
 
 ### Claim
 
@@ -112,4 +116,4 @@ function submit(
 
 ## Disclaimer
 This is dangerous unaudited code.
-there is only memes i love you ❣
+chaos never died, there is only memes, i love you ❣

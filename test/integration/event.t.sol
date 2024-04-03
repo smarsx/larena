@@ -46,6 +46,6 @@ contract EpochIntegrationTest is Test, MemoryPlus {
         (uint256 epochID, uint256 start) = ocmeme.currentEpoch();
 
         assertTrue(epochID > 0);
-        assertTrue(start >= ocmeme.start());
+        assertTrue(start >= ocmeme.$start());
     }
 }

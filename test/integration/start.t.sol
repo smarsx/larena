@@ -38,7 +38,7 @@ contract StartIntegrationTest is Test {
     // never setStart(), should revert.
     function testStartTime() public {
         vm.warp(300 weeks);
-        vm.assertEq(ocmeme.start(), 0);
+        vm.assertEq(ocmeme.$start(), 0);
         vm.expectRevert(Ocmeme.InvalidTime.selector);
         ocmeme.currentEpoch();
     }

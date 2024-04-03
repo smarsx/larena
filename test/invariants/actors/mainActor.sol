@@ -10,8 +10,9 @@ import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {console2 as console} from "forge-std/console2.sol";
+import {Interfaces} from "../../utils/Interfaces.sol";
 
-contract MainActor is CommonBase, StdCheats, StdUtils {
+contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
     Ocmeme ocmeme;
     Pages pages;
     Goo goo;
@@ -83,7 +84,7 @@ contract MainActor is CommonBase, StdCheats, StdUtils {
         vm.prank(currentUser);
         // this shouldn't effect any accounting because it will get refunded.
         ocmeme.mint{value: price * 2}();
-        ocOwner[currentUser].push(ocmeme.prevTokenID());
+        ocOwner[currentUser].push(ocmeme.$prevTokenID());
     }
 
     function vote(uint256 _seed) public virtual useUser(_seed) usePage(_seed) countCall("vote") {
@@ -158,7 +159,7 @@ contract MainActor is CommonBase, StdCheats, StdUtils {
         uint256 epochID = _seed % maxepochID;
         if (epochID > 0) {
             uint256 claimType = _seed % 3;
-            Ocmeme.Epoch memory e = ocmeme.epochs(epochID);
+            Ocmeme.Epoch memory e = getEpochs(epochID, ocmeme);
             if (e.goldPageID > 0) {
                 if (claimType == 0) {
                     address owner = pages.ownerOf(e.goldPageID);
