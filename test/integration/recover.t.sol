@@ -89,18 +89,6 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
         vm.stopPrank();
     }
 
-    function testDeleteRecovery(uint40 _time) public {
-        uint256 start = ocmeme.epochStart(epochID);
-        vm.warp(start + ocmeme.RECOVERY_PERIOD() + _time);
-
-        vm.startPrank(address(ocmeme.owner()));
-        ocmeme.deleteRecovery();
-
-        vm.expectRevert(Ocmeme.RecoveryLocked.selector);
-        ocmeme.recoverPayout(epochID);
-        vm.stopPrank();
-    }
-
     function testRecoverPayout(uint256 _seed) public brutalizeMemory {
         uint256 idx = _seed % 4;
         address vault = ocmeme.$vault();

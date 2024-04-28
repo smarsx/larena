@@ -11,13 +11,13 @@ pragma solidity ^0.8.24;
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {LibGOO} from "goo-issuance/LibGOO.sol";
-import {LogisticVRGDA} from "VRGDAs/LogisticVRGDA.sol";
-import {toDaysWadUnsafe, toWadUnsafe} from "solmate/utils/SignedWadMath.sol";
+import {LogisticToLinearVRGDA} from "VRGDAs/LogisticToLinearVRGDA.sol";
 
 import {SSTORE2} from "./libraries/SSTORE2.sol";
 import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {LibString} from "./libraries/LibString.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
+import {toDaysWadUnsafe, toWadUnsafe} from "./libraries/SignedWadMath.sol";
 
 import {OcmemeERC721} from "./utils/token/OcmemeERC721.sol";
 import {Pages} from "./Pages.sol";
@@ -28,17 +28,25 @@ import {Goo} from "./Goo.sol";
 /// @author smarsx.eth
 /// Inspired by Art Gobblers (https://github.com/artgobblers/art-gobblers).
 /// @custom:experimental This is an experimental contract. (NO PROFESSIONAL AUDIT, USE AT YOUR OWN RISK)
-contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
+contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     using LibString for uint256;
 
-    /// @notice Max supply per epoch.
-    uint256 public constant SUPPLY_PER_EPOCH = 500;
+    /// @dev The day the switch from a logistic to translated linear VRGDA is targeted to occur.
+    int256 internal constant SWITCH_DAY_WAD = 1800e18;
+
+    /// @notice The minimum amount of pages that must be sold for the VRGDA issuance
+    /// schedule to switch from logistic to linear formula.
+    int256 internal constant SOLD_BY_SWITCH_WAD = 9994.930541e18;
+
+    /// @notice Initial number allowed to be minted to vault per epoch.
+    /// @dev decreases over time eventually to zero.
+    /// @dev at switch to linear, vault supply will be ~5% of total supply.
+    uint256 public constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
 
     /// @notice Max submissions per epoch.
     uint256 public constant MAX_SUBMISSIONS = 100;
 
-    /// @notice The royalty denominator.
-    /// @dev Allows measurement in bps.
+    /// @notice The royalty denominator (bps).
     uint256 public constant ROYALTY_DENOMINATOR = 10000;
 
     /// @notice Length of time until admin recovery of claims is allowed.
@@ -47,18 +55,18 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     /// @notice Length of time epoch is active.
     uint256 public constant EPOCH_LENGTH = 30 days + 1 hours;
 
-    /// @notice Submissions are not allowed in the 72 hours preceeding end of epoch.
-    uint256 public constant SDEADZONE = EPOCH_LENGTH - 72 hours;
+    /// @notice Submissions are not allowed in the 48 hours preceeding end of epoch.
+    uint256 public constant SDEADZONE = 30 days - 47 hours;
 
     /// @notice Votes are ~exponentially nerfed (but still allowed) in hours preceeding end of epoch.
-    uint256 public constant VDEADZONE = EPOCH_LENGTH - 25 hours;
+    uint256 public constant VDEADZONE = 30 days - 11 hours;
 
     /// @notice Payout details.
-    uint256 public constant PAYOUT_DENOMINATOR = 100;
     uint256 public constant GOLD_SHARE = 85;
     uint256 public constant SILVER_SHARE = 8;
     uint256 public constant BRONZE_SHARE = 4;
     uint256 public constant VAULT_SHARE = 3;
+    uint256 public constant PAYOUT_DENOMINATOR = 100;
 
     /// @notice The address of Reserve vault.
     address public immutable $vault;
@@ -70,14 +78,10 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     Pages public immutable $pages;
 
     /// @notice The last minted token id.
-    uint56 public $prevTokenID;
+    uint64 public $prevTokenID;
 
     /// @notice Initial epoch timestamp.
     uint32 public $start;
-
-    /// @notice Allow recovery of assets.
-    /// @dev initialized to 1, when zeroed, cannot be changed.
-    uint8 public $allowRecovery = 1;
 
     /// @notice The url to access ocmeme uri.
     /// @dev BaseURI takes precedence over on-chain render in tokenURI.
@@ -85,7 +89,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     string public $baseURI;
 
     /*//////////////////////////////////////////////////////////////
-                                MAPPINGS
+                                STRUCTURES
     //////////////////////////////////////////////////////////////*/
 
     enum ClaimType {
@@ -93,6 +97,8 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         SILVER,
         BRONZE,
         VAULT,
+        // vault_mint doesn't conceptually belong here
+        // not a claim like the other fields.
         VAULT_MINT
     }
 
@@ -110,56 +116,49 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     }
 
     struct Vote {
-        uint48 nerfStart;
-        uint208 votes;
+        uint40 epochEnd;
+        uint216 votes;
     }
 
-    mapping(uint256 epochID => Epoch) public $epochs;
     mapping(uint256 pageID => Vote) public $votes;
+    mapping(uint256 epochID => Epoch) public $epochs;
     mapping(uint256 epochID => uint256[]) public $submissions;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event Submitted(
-        address indexed owner,
-        uint256 indexed epochID,
-        uint256 pageID,
-        uint256 royalty
-    );
+    event ChangedBaseURI(string baseURI);
+    event Claimed(uint256 indexed pageID, uint256 amt);
     event CrownedWinners(
         uint256 indexed epochID,
         uint256 goldPageID,
         uint256 silverPageID,
         uint256 bronzePageID
     );
-    event Claimed(
-        uint256 indexed epochID,
-        uint256 indexed pageID,
-        uint256 amt,
-        ClaimType claimType
-    );
+    event Deadzoned(uint256 indexed epochID);
     event GooBalanceUpdated(address indexed user, uint256 newGooBalance);
-    event Voted(uint256 indexed pageID, uint256 amt, address from);
-    event Recovered(uint256 indexed epochID, uint256 amt);
-    event Deadzoned(uint256 indexed epochID, uint256 dz);
-    event ChangedBaseURI(string baseURI);
-    event LockedRecovery();
+    event Recovered(uint256 indexed epochID);
     event Started();
+    event Submitted(
+        address indexed owner,
+        uint256 indexed epochID,
+        uint256 pageID,
+        uint256 royalty
+    );
+    event Voted(uint256 indexed pageID, uint256 amt, address from);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    error InvalidID();
-    error NotOwner();
-    error MaxSupply();
-    error WinnerSet();
-    error InvalidTime();
-    error RecoveryLocked();
     error DuplicateClaim();
     error InsufficientFunds();
+    error InvalidID();
+    error InvalidTime();
+    error MaxSupply();
+    error NotOwner();
+    error WinnerSet();
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -176,11 +175,14 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     )
         OcmemeERC721("OCMEME", "OCMEME")
         Owned(msg.sender)
-        LogisticVRGDA(
-            .005e18, // Target price.
+        LogisticToLinearVRGDA(
+            .025e18, // Target price.
             0.31e18, // Price decay percent.
-            toWadUnsafe(SUPPLY_PER_EPOCH),
-            .4e18 // Per time unit.
+            10000e18, // Logistic asymptote.
+            0.0138e18, // Logistic time scale.
+            SOLD_BY_SWITCH_WAD,
+            SWITCH_DAY_WAD,
+            0.03e18 // linear target per day.
         )
     {
         $goo = _goo;
@@ -194,21 +196,17 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
 
     /// @notice Mint ocmeme
     function mint() public payable {
-        (uint256 epochID, uint256 estart) = currentEpoch();
-        uint256 count = $epochs[epochID].count;
-
-        // Note: We don't need to check count < SUPPLY_PER_EPOCH, VRGDA will
-        // revert if we're over the logistic asymptote.
+        (uint256 epochID, ) = _currentEpoch();
 
         // unrealistic for price, or proceeds to overflow
         unchecked {
-            uint256 price = _getPrice(estart, count);
+            uint256 price = _getPrice($start, $prevTokenID);
             if (msg.value < price) revert InsufficientFunds();
 
             ++$epochs[epochID].count;
             $epochs[epochID].proceeds += uint136(price);
 
-            _mint(msg.sender, ++$prevTokenID, epochID, ++count);
+            _mint(msg.sender, ++$prevTokenID, epochID, $epochs[epochID].count);
 
             // refund overpaid
             SafeTransferLib.safeTransferETH(msg.sender, msg.value - price);
@@ -228,7 +226,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         string calldata _description,
         string calldata _duri
     ) external {
-        (uint256 epochID, uint256 estart) = currentEpoch();
+        (uint256 epochID, uint256 estart) = _currentEpoch();
 
         if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
         if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
@@ -247,6 +245,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
 
         $pages.setMetadata(_pageID, _royalty, pointer);
         $submissions[epochID].push(_pageID);
+        $votes[_pageID] = Vote(uint40(estart + EPOCH_LENGTH), 0);
         emit Submitted(msg.sender, epochID, _pageID, _royalty);
     }
 
@@ -254,39 +253,47 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     /// @param _pageID Page to cast vote for.
     /// @param _goo Amount of goo to spend.
     /// @param _useVirtualBalance Use virtual balance vs erc20 wallet balance.
-    /// @dev vote utilization is decreased exponentially in hours preceeding end of epoch.
+    /// @dev vote utilization is decreased exponentially in the 12 hours preceeding end of epoch.
     function vote(uint256 _pageID, uint256 _goo, bool _useVirtualBalance) external {
+        uint256 pvotes = $votes[_pageID].votes;
+        uint256 epochEnd = $votes[_pageID].epochEnd;
+        if (block.timestamp >= epochEnd) revert InvalidTime();
+
         // update user goo balance
         // reverts on balance < _goo
         _useVirtualBalance
             ? updateUserGooBalance(msg.sender, _goo, GooBalanceUpdateType.DECREASE)
             : $goo.burnGoo(msg.sender, _goo);
 
-        Vote memory vp = $votes[_pageID];
-        uint256 nerfStart = uint256(vp.nerfStart);
-        uint256 v = uint256(vp.votes);
         assembly {
-            // when nerfStart > 0 vote nerfing is active. -- see setVoteDeadzone
-            if gt(nerfStart, 0) {
-                // calculate penalty
-                let hrs := div(sub(timestamp(), nerfStart), 3600)
-                let utilization := 8
+            // timestamp > deadzone_start
+            if gt(timestamp(), add(sub(epochEnd, EPOCH_LENGTH), VDEADZONE)) {
+                let hrsRem := div(sub(epochEnd, timestamp()), 3600)
+                let utilization := 100
+                // roughly follow e^-.4x
                 // prettier-ignore
-                switch div(hrs, 6)
-                    case 0 { utilization := 99 }
-                    case 1 { utilization := 94 }
-                    case 2 { utilization := 84 }
-                    case 3 { utilization := 64 }
-                    case 4 { utilization := 24 }
-
-                // muldiv to decrease goo
-                _goo := div(mul(_goo, utilization), 100)
+                switch hrsRem
+                    case 12 { utilization := 973 }
+                    case 11 { utilization := 963 }
+                    case 10 { utilization := 950 }
+                    case 9 { utilization := 933 }
+                    case 8 { utilization := 909 }
+                    case 7 { utilization := 878 }
+                    case 6 { utilization := 835 }
+                    case 5 { utilization := 777 }
+                    case 4 { utilization := 699 }
+                    case 3 { utilization := 593 }
+                    case 2 { utilization := 451 }
+                    case 1 { utilization := 259 }
+                // muldiv to reach utilization
+                _goo := div(mul(_goo, utilization), 1000)
             }
             // add goo to votes
-            v := add(v, _goo)
+            // overflow to uint216 is unlikely on human timelines
+            pvotes := add(pvotes, _goo)
         }
 
-        $votes[_pageID].votes = uint208(v);
+        $votes[_pageID].votes = uint216(pvotes);
         emit Voted(_pageID, _goo, msg.sender);
     }
 
@@ -305,7 +312,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             amt := div(mul(p, GOLD_SHARE), PAYOUT_DENOMINATOR)
         }
 
-        emit Claimed(_epochID, e.goldPageID, amt, ClaimType.GOLD);
+        emit Claimed(e.goldPageID, amt);
         SafeTransferLib.safeTransferETH(msg.sender, amt);
     }
 
@@ -324,7 +331,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             amt := div(mul(p, SILVER_SHARE), PAYOUT_DENOMINATOR)
         }
 
-        emit Claimed(_epochID, e.silverPageID, amt, ClaimType.SILVER);
+        emit Claimed(e.silverPageID, amt);
         SafeTransferLib.safeTransferETH(msg.sender, amt);
     }
 
@@ -343,7 +350,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             amt := div(mul(p, BRONZE_SHARE), PAYOUT_DENOMINATOR)
         }
 
-        emit Claimed(_epochID, e.bronzePageID, amt, ClaimType.BRONZE);
+        emit Claimed(e.bronzePageID, amt);
         SafeTransferLib.safeTransferETH(msg.sender, amt);
     }
 
@@ -352,16 +359,17 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Crown winners for previous epoch.
-    /// @dev pages[0] can undeservingly win silver/bronze if not enough pages w/ votes > 0
+    /// @dev pages[0] can undeservingly win silver/bronze if < 3 pages w/ votes > 0
     /// this is non-issue w/ minimal participation.
     function crownWinners() external {
-        (uint256 epochID, ) = currentEpoch();
+        (uint256 epochID, ) = _currentEpoch();
         // use previous epoch.
+        // _currentEpoch will revert before this can overflow.
         unchecked {
             epochID -= 1;
         }
 
-        if ($epochs[epochID].goldPageID != 0) revert WinnerSet();
+        if ($epochs[epochID].goldPageID > 0) revert WinnerSet();
 
         uint256 gold;
         uint256 goldIdx;
@@ -411,39 +419,27 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         emit CrownedWinners(epochID, goldPageID, silverPageID, bronzePageID);
     }
 
-    /// @notice Pack deadzone timestamp into current epochs $votes
-    /// @dev packs timestamp into same slot that is loaded in Vote()
-    /// @dev gas expense to save an sload in Vote()
-    function setVoteDeadzone() external {
-        (uint256 epochID, uint256 estart) = currentEpoch();
-        uint256 nerfStart = estart + VDEADZONE;
-        if (block.timestamp > nerfStart) {
-            uint256[] memory subs = $submissions[epochID];
-            uint256 sublen = subs.length;
-
-            for (uint256 i; i < sublen; i++) {
-                $votes[subs[i]].nerfStart = uint48(nerfStart);
-            }
-        }
-
-        emit Deadzoned(epochID, nerfStart);
-    }
-
-    /// @notice Mint VAULT_NUM to protocol vault.
+    /// @notice Mint vaultNum to protocol vault.
     function vaultMint() external {
-        (uint256 epochID, ) = currentEpoch();
+        (uint256 epochID, ) = _currentEpoch();
         Epoch memory e = $epochs[epochID];
-        if (uint256(e.count) + VAULT_NUM > SUPPLY_PER_EPOCH) revert MaxSupply();
         if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
-        if (epochID > 97) revert();
+
+        uint256 vaultNum = epochID > 55 ? 0 : epochID > 28
+            ? 2
+            : INITIAL_VAULT_SUPPLY_PER_EPOCH - epochID;
+        if (vaultNum == 0) revert();
 
         $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
-        $epochs[epochID].count += uint16(VAULT_NUM);
-        $prevTokenID = uint56(_batchMint(address($vault), $prevTokenID, epochID, ++e.count));
+        $epochs[epochID].count += uint16(vaultNum);
+        $prevTokenID = uint56(
+            _batchMint(address($vault), $prevTokenID, epochID, ++e.count, vaultNum)
+        );
     }
 
     /// @notice Claim vault share.
     function claimVault(uint256 _epochID) external {
+        if (_epochID == 0) revert();
         Epoch memory e = $epochs[_epochID];
         if (e.claims & (1 << uint8(ClaimType.VAULT)) != 0) revert DuplicateClaim();
 
@@ -466,7 +462,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
                 )
         }
 
-        emit Claimed(_epochID, 0, amt, ClaimType.VAULT);
+        emit Claimed(0, amt);
         SafeTransferLib.safeTransferETH($vault, amt);
     }
 
@@ -660,24 +656,17 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
         emit Started();
     }
 
-    /// @notice Turn off recovery ability.
-    /// @dev one-time use.
-    function deleteRecovery() external onlyOwner {
-        delete $allowRecovery;
-        emit LockedRecovery();
-    }
-
     /// @notice Update base URI string.
     function updateBaseURI(string calldata _baseURI) external onlyOwner {
         $baseURI = _baseURI;
         emit ChangedBaseURI(_baseURI);
     }
 
-    /// @notice If past RECOVERY_PERIOD, recover unclaimed funds to vault.
+    /// @notice Sweep unclaimed funds to vault.
+    /// @dev timestamp must be > RECOVERY_PERIOD.
     function recoverPayout(uint256 _epochID) external onlyOwner {
-        uint256 startTime = epochStart(_epochID);
+        uint256 startTime = _epochStart(_epochID);
         if (startTime + RECOVERY_PERIOD > block.timestamp) revert InvalidTime();
-        if ($allowRecovery == 0) revert RecoveryLocked();
 
         Epoch memory e = $epochs[_epochID];
 
@@ -716,7 +705,7 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
             }
         }
 
-        emit Recovered(_epochID, amt);
+        emit Recovered(_epochID);
         SafeTransferLib.safeTransferETH($vault, amt);
     }
 
@@ -724,48 +713,56 @@ contract Ocmeme is OcmemeERC721, LogisticVRGDA, Owned {
                                     UTILS
     //////////////////////////////////////////////////////////////////*/
 
-    /// @notice Get active epochID and its start time.
-    function currentEpoch() public view returns (uint256 _epochID, uint256 _epochStart) {
+    /// @notice Get active epochID and its respective start time.
+    function currentEpoch() public view returns (uint256, uint256) {
+        return _currentEpoch();
+    }
+
+    /// @notice Get starting timestamp of given epoch
+    /// @dev if id = 0 this will overflow
+    function epochStart(uint256 _id) public view returns (uint256) {
+        return _epochStart(_id);
+    }
+
+    /// @notice Get active epochID and its respective start time.
+    function _currentEpoch() internal view returns (uint256 _epochID, uint256 _start) {
         assembly {
-            // extract $start
-            _epochStart := and(shr(216, sload(6)), 0xffffffff)
-            if iszero(_epochStart) {
+            // load slot6, extract $start
+            _start := and(shr(224, sload(6)), 0xffffffff)
+            if iszero(_start) {
                 mstore(0x00, 0x6f7eac26) // InvalidTime
                 revert(0x1c, 0x04)
             }
-            // given timestamp, $start, and epoch length can determine current epoch and respective timestamp.
-            _epochID := add(div(sub(timestamp(), _epochStart), EPOCH_LENGTH), 1)
-            _epochStart := add(mul(sub(_epochID, 1), EPOCH_LENGTH), _epochStart)
+            _epochID := add(div(sub(timestamp(), _start), EPOCH_LENGTH), 1)
+            _start := add(mul(sub(_epochID, 1), EPOCH_LENGTH), _start)
         }
     }
 
     /// @notice Get starting timestamp of given epoch
     /// @dev if id = 0 this will overflow
-    function epochStart(uint256 _id) public view returns (uint256 _start) {
+    function _epochStart(uint256 _id) internal view returns (uint256 _start) {
         assembly {
-            _start := add(mul(sub(_id, 1), EPOCH_LENGTH), and(shr(216, sload(6)), 0xffffffff))
+            _start := add(mul(sub(_id, 1), EPOCH_LENGTH), and(shr(224, sload(6)), 0xffffffff))
         }
     }
 
-    /// @notice Get active price.
+    /// @notice Get active VRGDA price.
+    /// @return Current price in wei.
     function getPrice() public view returns (uint256) {
-        (uint256 epochID, uint256 estart) = currentEpoch();
-        uint256 count = $epochs[epochID].count;
-        assembly {
-            count := add(sub(mul(epochID, 4), 1), count) // cupio dissolvi
-        }
-        return _getPrice(estart, $epochs[epochID].count);
+        if ($start == 0) revert InvalidTime();
+        return _getPrice($start, $prevTokenID);
     }
 
-    /// @notice Get VRGDA price given parameters
+    /// @notice Get VRGDA price given parameters.
     /// @return Current price in wei.
     function _getPrice(uint256 _mintStart, uint256 _numMinted) internal view returns (uint256) {
-        uint256 timeSinceStart = block.timestamp - _mintStart;
         unchecked {
+            uint256 timeSinceStart = block.timestamp - _mintStart;
             return getVRGDAPrice(toDaysWadUnsafe(timeSinceStart), _numMinted);
         }
     }
 
+    // convenience
     function getSubmissions(uint256 _epochID) public view returns (uint256[] memory) {
         return $submissions[_epochID];
     }

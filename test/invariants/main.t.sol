@@ -54,7 +54,7 @@ contract MainInvariantTest is Test, Interfaces {
         reserve.transferOwnership(address(actor));
 
         // restrict function selectors in handler
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = MainActor.mint.selector;
         selectors[1] = MainActor.submit.selector;
         selectors[2] = MainActor.vote.selector;
@@ -63,7 +63,6 @@ contract MainInvariantTest is Test, Interfaces {
         selectors[5] = MainActor.claim.selector;
         selectors[6] = MainActor.vaultMint.selector;
         selectors[7] = MainActor.recoverClaims.selector;
-        selectors[8] = MainActor.setDeadzone.selector;
 
         targetSelector(FuzzSelector({addr: address(actor), selectors: selectors}));
         targetContract(address(actor));
@@ -95,15 +94,6 @@ contract MainInvariantTest is Test, Interfaces {
             }
         }
         assertTrue(address(ocmeme).balance >= credits);
-    }
-
-    // each epoch.count < max_supply
-    function invariant_supply() public view {
-        (uint256 maxid, ) = ocmeme.currentEpoch();
-        for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
-            assertTrue(e.count <= ocmeme.SUPPLY_PER_EPOCH());
-        }
     }
 
     // each epoch.pages.length < max_submissions
@@ -225,15 +215,6 @@ contract MainInvariantTest is Test, Interfaces {
                 assertEq(e.silverPageID, silver);
                 assertEq(e.bronzePageID, bronze);
             }
-        }
-    }
-
-    function invariant_death() public view {
-        (uint256 epochid, ) = ocmeme.currentEpoch();
-        if (epochid > 125) {
-            Ocmeme.Epoch memory e = getEpochs(epochid, ocmeme);
-            assertEq(e.proceeds, 0);
-            assertEq(e.count, 0);
         }
     }
 }

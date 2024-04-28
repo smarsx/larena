@@ -39,13 +39,16 @@ contract MintIntegrationTest is Test, Interfaces {
         ocmeme.setStart();
     }
 
-    function testOcmemeIdGen(uint8 _amt) public {
-        bound(_amt, 1, 200);
-        Ocmeme.Epoch memory e;
-        uint256 amt = 100;
+    function testOcmemeIdGen(uint256 _amt) public {
+        _amt = bound(_amt, 1, 100);
         (uint256 epochID, ) = ocmeme.currentEpoch();
+        uint256 vaultNum = epochID > 55 ? 0 : epochID > 28
+            ? 2
+            : ocmeme.INITIAL_VAULT_SUPPLY_PER_EPOCH() - epochID;
 
-        for (uint i; i < amt; i++) {
+        Ocmeme.Epoch memory e;
+
+        for (uint i; i < _amt; i++) {
             uint256 p = ocmeme.getPrice();
             vm.deal(actor, p);
             vm.prank(actor);
@@ -53,16 +56,17 @@ contract MintIntegrationTest is Test, Interfaces {
         }
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(amt, e.count);
-        assertEq(amt, ocmeme.$prevTokenID());
+        assertEq(_amt, e.count);
+        assertEq(_amt, ocmeme.$prevTokenID());
 
+        // vault mint, which uses different mint function
         ocmeme.vaultMint();
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(amt + ocmeme.VAULT_NUM(), e.count);
-        assertEq(amt + ocmeme.VAULT_NUM(), ocmeme.$prevTokenID());
+        assertEq(_amt + vaultNum, e.count);
+        assertEq(_amt + vaultNum, ocmeme.$prevTokenID());
 
-        for (uint i; i < amt; i++) {
+        for (uint i; i < _amt; i++) {
             uint256 p = ocmeme.getPrice();
             vm.deal(actor, p);
             vm.prank(actor);
@@ -70,21 +74,7 @@ contract MintIntegrationTest is Test, Interfaces {
         }
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(amt + amt + ocmeme.VAULT_NUM(), e.count);
-        assertEq(amt + amt + ocmeme.VAULT_NUM(), ocmeme.$prevTokenID());
-    }
-
-    function testDeath(uint256 _warp) public {
-        bound(_warp, 10 * 52 weeks, type(uint256).max);
-        (uint256 epochID, ) = ocmeme.currentEpoch();
-        if (epochID > 125) {
-            vm.expectRevert();
-            ocmeme.getPrice();
-
-            vm.deal(actor, type(uint248).max);
-            vm.startPrank(actor);
-            vm.expectRevert();
-            ocmeme.mint{value: type(uint248).max}();
-        }
+        assertEq(_amt + _amt + vaultNum, e.count);
+        assertEq(_amt + _amt + vaultNum, ocmeme.$prevTokenID());
     }
 }

@@ -201,10 +201,6 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
         }
     }
 
-    function setDeadzone() public virtual countCall("deadzone") {
-        ocmeme.setVoteDeadzone();
-    }
-
     function getUsers() public view returns (address[] memory) {
         address[] memory u = new address[](users.length);
         for (uint256 i; i < users.length; i++) {

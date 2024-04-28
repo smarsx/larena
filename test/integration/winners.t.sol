@@ -42,6 +42,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
         actor = utils.createUsers(1, vm)[0];
         actors = utils.createUsers(10, vm);
 
+        vm.warp(block.timestamp + 1 days);
         vm.prank(ocmeme.owner());
         ocmeme.setStart();
     }
@@ -196,6 +197,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
             vm.startPrank(address(act));
             uint256 pageID = pages.mintFromGoo(price, false);
             ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+
             ocmeme.vote(pageID, i, false);
             vm.stopPrank();
         }

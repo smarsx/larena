@@ -25,7 +25,7 @@ contract Interfaces {
     }
 
     function getVotes(uint256 _pageID, Ocmeme _ocmeme) public view returns (Ocmeme.Vote memory) {
-        (uint48 nerfStart, uint208 votes) = _ocmeme.$votes(_pageID);
-        return Ocmeme.Vote({nerfStart: nerfStart, votes: votes});
+        (uint40 epochEnd, uint216 votes) = _ocmeme.$votes(_pageID);
+        return Ocmeme.Vote({epochEnd: epochEnd, votes: votes});
     }
 }

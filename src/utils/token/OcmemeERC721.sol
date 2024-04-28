@@ -29,13 +29,6 @@ abstract contract OcmemeERC721 {
     function tokenURI(uint256 id) external view virtual returns (string memory);
 
     /*//////////////////////////////////////////////////////////////
-                                CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Number of ocmemes allowed to be minted to vault.
-    uint256 public constant VAULT_NUM = 10;
-
-    /*//////////////////////////////////////////////////////////////
                             Ocmeme/ERC721 STORAGE
     //////////////////////////////////////////////////////////////*/
 
@@ -198,7 +191,8 @@ abstract contract OcmemeERC721 {
         address to,
         uint256 id,
         uint256 epochID,
-        uint256 index
+        uint256 index,
+        uint256 count
     ) internal returns (uint256) {
         // Does not check if the token was already minted or the recipient is address(0)
         // because Ocmeme.sol manages its ids in such a way that it ensures it won't
@@ -227,10 +221,10 @@ abstract contract OcmemeERC721 {
         }
 
         unchecked {
-            getUserData[to].memesOwned += uint32(VAULT_NUM);
-            getUserData[to].emissionMultiple += uint32(multiple * VAULT_NUM);
+            getUserData[to].memesOwned += uint32(count);
+            getUserData[to].emissionMultiple += uint32(multiple * count);
 
-            for (uint256 i = 0; i < VAULT_NUM; ++i) {
+            for (uint256 i = 0; i < count; ++i) {
                 getMemeData[++id].owner = to;
                 getMemeData[id].index = uint32(index + i);
                 getMemeData[id].epochID = uint32(epochID);

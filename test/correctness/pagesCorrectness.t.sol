@@ -75,7 +75,7 @@ contract PagesCorrectnessTest is DSTestPlus {
         inputs[8] = uint256(_targetPrice).toString();
         inputs[9] = "--per_period_price_decrease";
         inputs[10] = uint256(_PER_PERIOD_PRICE_DECREASE).toString();
-        inputs[11] = "--per_period";
+        inputs[11] = "--per_period_post_switchover";
         inputs[12] = uint256(_PER_PERIOD).toString();
 
         return abi.decode(vm.ffi(inputs), (uint256));

@@ -165,4 +165,32 @@ contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
         assertEq(start, x);
         assertEq(start, $start);
     }
+
+    function testDeath(uint256 _count, uint256 _epochID) public view brutalizeMemory {
+        _epochID = bound(_epochID, 1, 250);
+        _count = bound(_count, 0, 1000);
+
+        // basic
+        uint256 neg = _epochID * 4;
+        neg -= 1;
+        uint256 expectedCount = neg + _count;
+        // optimized
+        assembly {
+            _count := add(sub(mul(_epochID, 4), 1), _count)
+        }
+
+        assertEq(_count, expectedCount);
+    }
+
+    function testCountMultiplier(uint256 count, uint256 epochID) public pure {
+        count = bound(count, 0, 1000);
+        epochID = bound(epochID, 1, 1000);
+        uint256 mcount = ((epochID - 1) * 4) + count;
+
+        uint256 expectedCount = epochID - 1;
+        expectedCount *= 4;
+        expectedCount += count;
+
+        assertEq(mcount, expectedCount);
+    }
 }

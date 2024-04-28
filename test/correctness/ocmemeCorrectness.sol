@@ -16,15 +16,17 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
     uint256 internal immutable TWENTY_YEARS = 7300 days;
 
-    uint256 internal MAX_MINTABLE;
+    uint256 internal MAX_MINTABLE = 10000;
 
     int256 internal LOGISTIC_SCALE;
 
-    int256 internal immutable INITIAL_PRICE = .005e18;
+    int256 internal immutable INITIAL_PRICE = .025e18;
 
     int256 internal immutable PER_PERIOD_PRICE_DECREASE = 0.31e18;
 
-    int256 internal immutable TIME_SCALE = .4e18;
+    int256 internal immutable TIME_SCALE = 0.0138e18;
+    int256 internal immutable SWITCHOVER_TIME = 9994.930541e18;
+    int256 internal immutable PER_PERIOD_POST_SWITCHOVER = 1e18;
 
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
@@ -32,8 +34,6 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
     function setUp() public {
         ocmeme = new Ocmeme(Goo(address(0)), Pages(address(0)), address(0));
-
-        MAX_MINTABLE = ocmeme.SUPPLY_PER_EPOCH();
         LOGISTIC_SCALE = int256((MAX_MINTABLE + 1) * 2e18);
     }
 
@@ -55,7 +55,9 @@ contract OcmemeCorrectnessTest is DSTestPlus {
                 INITIAL_PRICE,
                 PER_PERIOD_PRICE_DECREASE,
                 LOGISTIC_SCALE,
-                TIME_SCALE
+                TIME_SCALE,
+                PER_PERIOD_POST_SWITCHOVER,
+                SWITCHOVER_TIME
             );
 
             if (expectedPrice < 0.0000000000001e18) return; // For really small prices we can't expect them to be equal.
@@ -73,9 +75,11 @@ contract OcmemeCorrectnessTest is DSTestPlus {
         int256 _targetPrice,
         int256 _perPeriodPriceDecrease,
         int256 _logisticScale,
-        int256 _timeScale
+        int256 _timeScale,
+        int256 _perPeriodPostSwitchover,
+        int256 _switchoverTime
     ) private returns (uint256) {
-        string[] memory inputs = new string[](15);
+        string[] memory inputs = new string[](19);
         inputs[0] = "python3";
         inputs[1] = "analysis/compute_price.py";
         inputs[2] = "ocmeme";
@@ -91,6 +95,10 @@ contract OcmemeCorrectnessTest is DSTestPlus {
         inputs[12] = uint256(_logisticScale).toString();
         inputs[13] = "--time_scale";
         inputs[14] = uint256(_timeScale).toString();
+        inputs[15] = "--per_period_post_switchover";
+        inputs[16] = uint256(_perPeriodPostSwitchover).toString();
+        inputs[17] = "--switchover_time";
+        inputs[18] = uint256(_switchoverTime).toString();
 
         return abi.decode(vm.ffi(inputs), (uint256));
     }

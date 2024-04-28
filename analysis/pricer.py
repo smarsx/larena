@@ -2,7 +2,7 @@ import math
 
 
 class Pricer:
-    def compute_log_price(
+    def compute_ocmeme_price(
         self,
         time_since_start,
         num_sold,
@@ -11,16 +11,35 @@ class Pricer:
         logistic_scale,
         time_scale,
         time_shift,
+        per_period_post_switchover,
+        switchover_time,
     ):
-        return self.compute_vrgda_price(
-            time_since_start,
-            num_sold,
-            initial_price,
-            per_period_price_decrease,
-            logistic_scale,
-            time_scale,
-            time_shift,
+        initial_value = logistic_scale / (1 + math.exp(time_scale * time_shift))
+        sold_by_switchover = (
+            logistic_scale
+            / (1 + math.exp(-1 * time_scale * (switchover_time - time_shift)))
+            - initial_value
         )
+        if num_sold < sold_by_switchover:
+            return self.compute_vrgda_price(
+                time_since_start,
+                num_sold,
+                initial_price,
+                per_period_price_decrease,
+                logistic_scale,
+                time_scale,
+                time_shift,
+            )
+        else:
+            num_sold = num_sold - sold_by_switchover
+            return self.compute_linear_price(
+                time_since_start,
+                num_sold,
+                initial_price,
+                per_period_price_decrease,
+                per_period_post_switchover,
+                switchover_time,
+            )
 
     def compute_linear_price(
         self,
@@ -28,9 +47,10 @@ class Pricer:
         num_sold,
         initial_price,
         per_period_price_decrease,
-        per_period,
+        per_period_post_switchover,
+        switchover_time,
     ):
-        f_inv = num_sold / per_period
+        f_inv = (num_sold) / per_period_post_switchover + switchover_time
         return initial_price * math.exp(
             -math.log(1 - per_period_price_decrease) * (f_inv - time_since_start)
         )

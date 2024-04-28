@@ -12,7 +12,7 @@ def main(args):
 
 def calculate_ocmeme_price(args):
     pricer = Pricer()
-    price = pricer.compute_log_price(
+    price = pricer.compute_ocmeme_price(
         args.time_since_start / (60 * 60 * 24),  ## convert to seconds
         args.num_sold,
         args.initial_price / (10**18),  ## scale decimals
@@ -20,6 +20,8 @@ def calculate_ocmeme_price(args):
         args.logistic_scale / (10**18),  ## scale decimals
         args.time_scale / (10**18),  ## scale decimals
         0,
+        args.per_period_post_switchover / (10**18),  ## scale decimals
+        args.switchover_time / (10**18),  ## scale decimals
     )
     price *= 10**18
     encode_and_print(price)
@@ -32,7 +34,8 @@ def calculate_pages_price(args):
         args.num_sold,
         args.initial_price / (10**18),  ## scale decimals
         args.per_period_price_decrease / (10**18),  ## scale decimals
-        args.per_period / (10**18),
+        args.per_period_post_switchover / (10**18),
+        0,
     )
     price *= 10**18
     encode_and_print(price)
@@ -53,7 +56,6 @@ def parse_args():
     parser.add_argument("--per_period_price_decrease", type=int)
     parser.add_argument("--logistic_scale", type=int)
     parser.add_argument("--time_scale", type=int)
-    parser.add_argument("--per_period", type=int)
     parser.add_argument("--per_period_post_switchover", type=int)
     parser.add_argument("--switchover_time", type=int)
     return parser.parse_args()
