@@ -5,7 +5,7 @@ import {Owned} from "solmate/auth/Owned.sol";
 
 import {Ocmeme} from "../Ocmeme.sol";
 import {Pages} from "../Pages.sol";
-import {Goo} from "../Goo.sol";
+import {Coin} from "../Coin.sol";
 
 interface IERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
@@ -16,12 +16,12 @@ interface IERC20 {
 contract Reserve is Owned {
     Ocmeme public immutable ocmeme;
     Pages public immutable pages;
-    Goo public immutable goo;
+    Coin public immutable coin;
 
-    constructor(Ocmeme _ocmeme, Pages _pages, Goo _goo, address _owner) Owned(_owner) {
+    constructor(Ocmeme _ocmeme, Pages _pages, Coin _coin, address _owner) Owned(_owner) {
         ocmeme = _ocmeme;
         pages = _pages;
-        goo = _goo;
+        coin = _coin;
     }
 
     function withdrawalOcmeme(address _to, uint256[] calldata _ids) external onlyOwner {
@@ -36,9 +36,9 @@ contract Reserve is Owned {
         pages.transferFrom(address(this), _to, _id);
     }
 
-    function withdrawalGoo(address _to, uint256 _goo) external onlyOwner {
-        ocmeme.removeGoo(_goo);
-        goo.transfer(_to, _goo);
+    function withdrawalCoin(address _to, uint256 _coin) external onlyOwner {
+        ocmeme.removeCoin(_coin);
+        coin.transfer(_to, _coin);
     }
 
     function withdrawalToken(address _token, address _to, uint256 _amt) external onlyOwner {

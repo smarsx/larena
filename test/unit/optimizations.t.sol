@@ -136,14 +136,14 @@ contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
     }
 
     // invalidations that I removed from the muldiv in FixedPointMathLib
-    function testMulDivInval(uint128 _goo, uint8 _penalty) public pure {
+    function testMulDivInval(uint128 _coin, uint8 _penalty) public pure {
         vm.assume(_penalty >= 20 && _penalty <= 95);
-        assertTrue(_goo <= type(uint256).max / _penalty);
+        assertTrue(_coin <= type(uint256).max / _penalty);
     }
 
-    function testMulDivInvalShares(uint128 _goo, uint8 _share) public pure {
+    function testMulDivInvalShares(uint128 _coin, uint8 _share) public pure {
         vm.assume(_share > 1 && _share <= 85);
-        assertTrue(_goo <= type(uint256).max / _share);
+        assertTrue(_coin <= type(uint256).max / _share);
     }
 
     function testStart() public brutalizeMemory {

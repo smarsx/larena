@@ -18,7 +18,6 @@ contract Decoder {
         string name;
         string description;
         string content;
-        string status;
     }
 
     function getTempJsonPath(Vm _vm, uint256 _idx) public view returns (string memory) {
@@ -36,26 +35,27 @@ contract Decoder {
         string memory tempjson = getTempJsonPath(_vm, _fileEnding);
 
         string memory decodedUri = string(Base64.decode(_uri.slice(29)));
+
+        // write / read
         _vm.writeJson(decodedUri, tempjson);
         string memory json = _vm.readFile(tempjson);
 
-        uint32 dmult = _hasTraits ? pyEmissionMultiple(_vm, tempjson) : 0;
+        // decode
         string memory dname = abi.decode(json.parseRaw(".name"), (string));
         string memory ddescription = abi.decode(json.parseRaw(".description"), (string));
         string memory dcontent = abi.decode(
             json.parseRaw(_typ == NFTMeta.TypeURI.IMG ? ".image" : ".animation_url"),
             (string)
         );
-
-        string memory status = _hasTraits ? pyStrings(_vm, tempjson, "status") : "";
+        // extract attribute
+        uint32 emissionMultiple = _hasTraits ? pyEmissionMultiple(_vm, tempjson) : 0;
 
         return
             DecodedContent({
-                emissionMultiple: dmult,
+                emissionMultiple: emissionMultiple,
                 name: dname,
                 description: ddescription,
-                content: dcontent,
-                status: status
+                content: dcontent
             });
     }
 

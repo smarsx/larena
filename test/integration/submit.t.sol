@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -12,7 +12,7 @@ import {Utilities} from "../utils/Utilities.sol";
 
 contract SubmitIntegrationTest is Test {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -20,18 +20,18 @@ contract SubmitIntegrationTest is Test {
 
     function setUp() public {
         utils = new Utilities();
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(ocmeme.owner());
@@ -40,13 +40,13 @@ contract SubmitIntegrationTest is Test {
 
     function testMakeSubmission() public {
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.gooBalance(actor);
+        uint256 bal = ocmeme.coinBalance(actor);
         if (bal < price) {
             vm.prank(address(ocmeme));
-            goo.mintGoo(actor, price);
+            coin.mintCoin(actor, price);
         }
         vm.startPrank(actor);
-        uint256 pageID = pages.mintFromGoo(price, false);
+        uint256 pageID = pages.mintFromCoin(price, false);
         ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         vm.stopPrank();
     }
@@ -56,18 +56,18 @@ contract SubmitIntegrationTest is Test {
         vm.warp(_warp);
 
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.gooBalance(actor);
+        uint256 bal = ocmeme.coinBalance(actor);
         if (bal < price) {
             vm.prank(address(ocmeme));
-            goo.mintGoo(actor, price);
+            coin.mintCoin(actor, price);
         }
         vm.startPrank(actor);
-        uint256 pageID = pages.mintFromGoo(price, false);
+        uint256 pageID = pages.mintFromCoin(price, false);
 
         (uint256 epochID, ) = ocmeme.currentEpoch();
         uint256 start = ocmeme.epochStart(epochID);
 
-        if (block.timestamp - start > ocmeme.SDEADZONE()) {
+        if (block.timestamp - start > ocmeme.SUBMISSION_DEADLINE()) {
             vm.expectRevert(Ocmeme.InvalidTime.selector);
             ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         } else {
@@ -80,10 +80,10 @@ contract SubmitIntegrationTest is Test {
         uint256 price = pages.pagePrice();
 
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, price);
+        coin.mintCoin(actor, price);
 
         vm.startPrank(address(actor));
-        uint256 pageID = pages.mintFromGoo(price, false);
+        uint256 pageID = pages.mintFromCoin(price, false);
         ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
 
         vm.expectRevert(Pages.Used.selector);

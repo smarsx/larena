@@ -6,7 +6,7 @@ import {stdError} from "forge-std/StdError.sol";
 import {fromDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -17,7 +17,7 @@ import {Interfaces} from "../utils/Interfaces.sol";
 
 contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -26,18 +26,18 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
 
     function setUp() public {
         utils = new Utilities();
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
         users = utils.createUsers(5, vm);
 
         vm.prank(ocmeme.owner());
@@ -50,10 +50,10 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
             // mint page
             uint256 price = pages.pagePrice();
             vm.prank(address(ocmeme));
-            goo.mintGoo(user, price);
+            coin.mintCoin(user, price);
 
             vm.prank(address(user));
-            uint256 pageID = pages.mintFromGoo(price, false);
+            uint256 pageID = pages.mintFromCoin(price, false);
 
             // submit
             vm.prank(address(user));

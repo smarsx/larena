@@ -8,7 +8,7 @@ import {toDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {console2 as console} from "forge-std/console2.sol";
 
 import {Ocmeme} from "../../src/Ocmeme.sol";
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
 
 contract PagesCorrectnessTest is DSTestPlus {
@@ -27,7 +27,7 @@ contract PagesCorrectnessTest is DSTestPlus {
     Pages internal pages;
 
     function setUp() public {
-        pages = new Pages(block.timestamp, Goo(address(0)), address(0), Ocmeme(address(0)));
+        pages = new Pages(block.timestamp, Coin(address(0)), address(0), Ocmeme(address(0)));
     }
 
     function testFFICorrectness(uint256 timeSinceStart, uint256 numSold) public {

@@ -21,12 +21,12 @@ import {toDaysWadUnsafe, toWadUnsafe} from "./libraries/SignedWadMath.sol";
 
 import {OcmemeERC721} from "./utils/token/OcmemeERC721.sol";
 import {Pages} from "./Pages.sol";
-import {Goo} from "./Goo.sol";
+import {Coin} from "./Coin.sol";
 
 /// @title OCmeme
 /// On-chain user-generated autonomous art competition.
 /// @author smarsx.eth
-/// Inspired by Art Gobblers (https://github.com/artgobblers/art-gobblers).
+/// Inspired by Art Gobblers, Basepaint, and inscriptions.
 /// @custom:experimental This is an experimental contract. (NO PROFESSIONAL AUDIT, USE AT YOUR OWN RISK)
 contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     using LibString for uint256;
@@ -36,7 +36,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
     /// @notice The minimum amount of pages that must be sold for the VRGDA issuance
     /// schedule to switch from logistic to linear formula.
-    int256 internal constant SOLD_BY_SWITCH_WAD = 9994.930541e18;
+    int256 internal constant SOLD_BY_SWITCH_WAD = 9999e18;
 
     /// @notice Initial number allowed to be minted to vault per epoch.
     /// @dev decreases over time eventually to zero.
@@ -56,23 +56,23 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     uint256 public constant EPOCH_LENGTH = 30 days + 1 hours;
 
     /// @notice Submissions are not allowed in the 48 hours preceeding end of epoch.
-    uint256 public constant SDEADZONE = 30 days - 47 hours;
+    uint256 public constant SUBMISSION_DEADLINE = 30 days - 47 hours;
 
-    /// @notice Votes are ~exponentially nerfed (but still allowed) in hours preceeding end of epoch.
-    uint256 public constant VDEADZONE = 30 days - 11 hours;
+    /// @notice Voting power decays exponentially in the 12 hours preceeding end of epoch.
+    uint256 public constant DECAY_ZONE = 30 days - 11 hours;
 
     /// @notice Payout details.
-    uint256 public constant GOLD_SHARE = 85;
-    uint256 public constant SILVER_SHARE = 8;
-    uint256 public constant BRONZE_SHARE = 4;
-    uint256 public constant VAULT_SHARE = 3;
-    uint256 public constant PAYOUT_DENOMINATOR = 100;
+    uint256 public constant GOLD_SHARE = 85000;
+    uint256 public constant SILVER_SHARE = 8000;
+    uint256 public constant BRONZE_SHARE = 4000;
+    uint256 public constant VAULT_SHARE = 3000;
+    uint256 public constant PAYOUT_DENOMINATOR = 100000;
 
     /// @notice The address of Reserve vault.
     address public immutable $vault;
 
-    /// @notice The address of Goo contract.
-    Goo public immutable $goo;
+    /// @notice The address of Coin contract.
+    Coin public immutable $coin;
 
     /// @notice The address of Pages contract.
     Pages public immutable $pages;
@@ -103,10 +103,8 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     }
 
     struct Epoch {
-        // each bit represents a bool for ClaimType.
-        uint8 claims;
-        // num tokens minted for epoch.
-        uint16 count;
+        uint8 claims; // each bit represents a bool for ClaimType.
+        uint16 firstTokenID;
         // winning pages
         uint32 goldPageID;
         uint32 silverPageID;
@@ -136,8 +134,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         uint256 silverPageID,
         uint256 bronzePageID
     );
-    event Deadzoned(uint256 indexed epochID);
-    event GooBalanceUpdated(address indexed user, uint256 newGooBalance);
+    event CoinBalanceUpdated(address indexed user, uint256 newCoinBalance);
     event Recovered(uint256 indexed epochID);
     event Started();
     event Submitted(
@@ -165,18 +162,18 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets up initial conditions.
-    /// @param _goo Address of the Goo contract.
+    /// @param _coin Address of the Coin contract.
     /// @param _pages Address of the Pages contract.
     /// @param _vault Address of the reserve vault.
     constructor(
-        Goo _goo,
+        Coin _coin,
         Pages _pages,
         address _vault
     )
         OcmemeERC721("OCMEME", "OCMEME")
         Owned(msg.sender)
         LogisticToLinearVRGDA(
-            .025e18, // Target price.
+            .0125e18, // Target price.
             0.31e18, // Price decay percent.
             10000e18, // Logistic asymptote.
             0.0138e18, // Logistic time scale.
@@ -185,7 +182,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
             0.03e18 // linear target per day.
         )
     {
-        $goo = _goo;
+        $coin = _coin;
         $pages = _pages;
         $vault = _vault;
     }
@@ -198,15 +195,20 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     function mint() public payable {
         (uint256 epochID, ) = _currentEpoch();
 
-        // unrealistic for price, or proceeds to overflow
+        // unrealistic for price, proceeds, and tokenid to overflow
         unchecked {
             uint256 price = _getPrice($start, $prevTokenID);
             if (msg.value < price) revert InsufficientFunds();
 
-            ++$epochs[epochID].count;
+            uint256 tokenID = ++$prevTokenID;
             $epochs[epochID].proceeds += uint136(price);
 
-            _mint(msg.sender, ++$prevTokenID, epochID, $epochs[epochID].count);
+            if ($epochs[epochID].firstTokenID == 0) {
+                // overflow possible in ~4500 years
+                $epochs[epochID].firstTokenID = uint16(tokenID);
+            }
+
+            _mint(msg.sender, tokenID, epochID, ++tokenID - $epochs[epochID].firstTokenID);
 
             // refund overpaid
             SafeTransferLib.safeTransferETH(msg.sender, msg.value - price);
@@ -230,7 +232,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
         if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
         if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
-        if (block.timestamp > estart + SDEADZONE) revert InvalidTime();
+        if (block.timestamp > estart + SUBMISSION_DEADLINE) revert InvalidTime();
 
         address pointer = SSTORE2.write(
             NFTMeta.constructTokenURI(
@@ -251,23 +253,23 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
     /// @notice Vote for a page.
     /// @param _pageID Page to cast vote for.
-    /// @param _goo Amount of goo to spend.
+    /// @param _coin Amount of coin to spend.
     /// @param _useVirtualBalance Use virtual balance vs erc20 wallet balance.
     /// @dev vote utilization is decreased exponentially in the 12 hours preceeding end of epoch.
-    function vote(uint256 _pageID, uint256 _goo, bool _useVirtualBalance) external {
+    function vote(uint256 _pageID, uint256 _coin, bool _useVirtualBalance) external {
         uint256 pvotes = $votes[_pageID].votes;
         uint256 epochEnd = $votes[_pageID].epochEnd;
         if (block.timestamp >= epochEnd) revert InvalidTime();
 
-        // update user goo balance
-        // reverts on balance < _goo
+        // update user coin balance
+        // reverts on balance < _coin
         _useVirtualBalance
-            ? updateUserGooBalance(msg.sender, _goo, GooBalanceUpdateType.DECREASE)
-            : $goo.burnGoo(msg.sender, _goo);
+            ? updateUserCoinBalance(msg.sender, _coin, CoinBalanceUpdateType.DECREASE)
+            : $coin.burnCoin(msg.sender, _coin);
 
         assembly {
             // timestamp > deadzone_start
-            if gt(timestamp(), add(sub(epochEnd, EPOCH_LENGTH), VDEADZONE)) {
+            if gt(timestamp(), add(sub(epochEnd, EPOCH_LENGTH), DECAY_ZONE)) {
                 let hrsRem := div(sub(epochEnd, timestamp()), 3600)
                 let utilization := 100
                 // roughly follow e^-.4x
@@ -286,15 +288,15 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
                     case 2 { utilization := 451 }
                     case 1 { utilization := 259 }
                 // muldiv to reach utilization
-                _goo := div(mul(_goo, utilization), 1000)
+                _coin := div(mul(_coin, utilization), 1000)
             }
-            // add goo to votes
+            // add coin to votes
             // overflow to uint216 is unlikely on human timelines
-            pvotes := add(pvotes, _goo)
+            pvotes := add(pvotes, _coin)
         }
 
         $votes[_pageID].votes = uint216(pvotes);
-        emit Voted(_pageID, _goo, msg.sender);
+        emit Voted(_pageID, _coin, msg.sender);
     }
 
     /// @notice Claim gold winnings.
@@ -422,7 +424,9 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// @notice Mint vaultNum to protocol vault.
     function vaultMint() external {
         (uint256 epochID, ) = _currentEpoch();
+        uint256 tokenID = $prevTokenID;
         Epoch memory e = $epochs[epochID];
+
         if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
 
         uint256 vaultNum = epochID > 55 ? 0 : epochID > 28
@@ -431,9 +435,17 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         if (vaultNum == 0) revert();
 
         $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
-        $epochs[epochID].count += uint16(vaultNum);
+        if ($epochs[epochID].firstTokenID == 0) {
+            $epochs[epochID].firstTokenID = uint16(tokenID + 1);
+        }
         $prevTokenID = uint56(
-            _batchMint(address($vault), $prevTokenID, epochID, ++e.count, vaultNum)
+            _batchMint(
+                address($vault),
+                tokenID,
+                epochID,
+                (2 + tokenID) - $epochs[epochID].firstTokenID,
+                vaultNum
+            )
         );
     }
 
@@ -470,10 +482,10 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
                                 GOO LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Calculate a user's virtual goo balance.
+    /// @notice Calculate a user's virtual coin balance.
     /// @param _user The user to query balance for.
-    function gooBalance(address _user) public view returns (uint256) {
-        // Compute the user's virtual goo balance using LibGOO
+    function coinBalance(address _user) public view returns (uint256) {
+        // Compute the user's virtual coin balance using LibGOO
         // prettier-ignore
         return LibGOO.computeGOOBalance(
             getUserData[_user].emissionMultiple,
@@ -482,68 +494,68 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         );
     }
 
-    /// @notice Add goo to your emission balance,
+    /// @notice Add coin to your emission balance,
     /// burning the corresponding ERC20 balance.
-    /// @param _gooAmount The amount of goo to add.
-    function addGoo(uint256 _gooAmount) external {
-        // Burn goo being added to ocmeme
-        $goo.burnGoo(msg.sender, _gooAmount);
+    /// @param _coinAmount The amount of coin to add.
+    function addCoin(uint256 _coinAmount) external {
+        // Burn coin being added to ocmeme
+        $coin.burnCoin(msg.sender, _coinAmount);
 
-        // Increase msg.sender's virtual goo balance
-        updateUserGooBalance(msg.sender, _gooAmount, GooBalanceUpdateType.INCREASE);
+        // Increase msg.sender's virtual coin balance
+        updateUserCoinBalance(msg.sender, _coinAmount, CoinBalanceUpdateType.INCREASE);
     }
 
-    /// @notice Remove goo from your emission balance, and
+    /// @notice Remove coin from your emission balance, and
     /// add the corresponding amount to your ERC20 balance.
-    /// @param _gooAmount The amount of goo to remove.
-    function removeGoo(uint256 _gooAmount) external {
-        // Decrease msg.sender's virtual goo balance
-        updateUserGooBalance(msg.sender, _gooAmount, GooBalanceUpdateType.DECREASE);
+    /// @param _coinAmount The amount of coin to remove.
+    function removeCoin(uint256 _coinAmount) external {
+        // Decrease msg.sender's virtual coin balance
+        updateUserCoinBalance(msg.sender, _coinAmount, CoinBalanceUpdateType.DECREASE);
 
-        // Mint the corresponding amount of ERC20 goo
-        $goo.mintGoo(msg.sender, _gooAmount);
+        // Mint the corresponding amount of ERC20 coin
+        $coin.mintCoin(msg.sender, _coinAmount);
     }
 
-    /// @notice Burn an amount of a user's virtual goo balance. Only callable
+    /// @notice Burn an amount of a user's virtual coin balance. Only callable
     /// by the Pages contract to enable purchasing pages with virtual balance.
-    /// @param _user The user whose virtual goo balance we should burn from.
-    /// @param _gooAmount The amount of goo to burn from the user's virtual balance.
-    function burnGooForPages(address _user, uint256 _gooAmount) external {
+    /// @param _user The user whose virtual coin balance we should burn from.
+    /// @param _coinAmount The amount of coin to burn from the user's virtual balance.
+    function burnCoinForPages(address _user, uint256 _coinAmount) external {
         // The caller must be the Pages contract, revert otherwise
         if (msg.sender != address($pages)) revert InsufficientFunds();
 
-        // Burn the requested amount of goo from the user's virtual goo balance
-        // Will revert if the user doesn't have enough goo in their virtual balance
-        updateUserGooBalance(_user, _gooAmount, GooBalanceUpdateType.DECREASE);
+        // Burn the requested amount of coin from the user's virtual coin balance
+        // Will revert if the user doesn't have enough coin in their virtual balance
+        updateUserCoinBalance(_user, _coinAmount, CoinBalanceUpdateType.DECREASE);
     }
 
     /// @dev An enum for representing whether to
-    /// increase or decrease a user's goo balance.
-    enum GooBalanceUpdateType {
+    /// increase or decrease a user's coin balance.
+    enum CoinBalanceUpdateType {
         INCREASE,
         DECREASE
     }
 
-    /// @notice Update a user's virtual goo balance.
-    /// @param _user The user whose virtual goo balance we should update.
-    /// @param _gooAmount The amount of goo to update the user's virtual balance by.
-    /// @param _updateType Whether to increase or decrease the user's balance by gooAmount.
-    function updateUserGooBalance(
+    /// @notice Update a user's virtual coin balance.
+    /// @param _user The user whose virtual coin balance we should update.
+    /// @param _coinAmount The amount of coin to update the user's virtual balance by.
+    /// @param _updateType Whether to increase or decrease the user's balance by coinAmount.
+    function updateUserCoinBalance(
         address _user,
-        uint256 _gooAmount,
-        GooBalanceUpdateType _updateType
+        uint256 _coinAmount,
+        CoinBalanceUpdateType _updateType
     ) internal {
         // Will revert due to underflow if we're decreasing by more than the user's current balance
         // Don't need to do checked addition in the increase case, but we do it anyway for convenience
-        uint256 updatedBalance = _updateType == GooBalanceUpdateType.INCREASE
-            ? gooBalance(_user) + _gooAmount
-            : gooBalance(_user) - _gooAmount;
+        uint256 updatedBalance = _updateType == CoinBalanceUpdateType.INCREASE
+            ? coinBalance(_user) + _coinAmount
+            : coinBalance(_user) - _coinAmount;
 
-        // Snapshot the user's new goo balance with the current timestamp
+        // Snapshot the user's new coin balance with the current timestamp
         getUserData[_user].lastBalance = uint128(updatedBalance);
         getUserData[_user].lastTimestamp = uint64(block.timestamp);
 
-        emit GooBalanceUpdated(_user, updatedBalance);
+        emit CoinBalanceUpdated(_user, updatedBalance);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -599,14 +611,14 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
             // We update their last balance before updating their emission multiple to avoid
             // penalizing them by retroactively applying their new (lower) emission multiple
-            getUserData[from].lastBalance = uint128(gooBalance(from));
+            getUserData[from].lastBalance = uint128(coinBalance(from));
             getUserData[from].lastTimestamp = uint64(block.timestamp);
             getUserData[from].emissionMultiple -= emissionMultiple;
             getUserData[from].memesOwned -= 1;
 
             // We update their last balance before updating their emission multiple to avoid
             // overpaying them by retroactively applying their new (higher) emission multiple
-            getUserData[to].lastBalance = uint128(gooBalance(to));
+            getUserData[to].lastBalance = uint128(coinBalance(to));
             getUserData[to].lastTimestamp = uint64(block.timestamp);
             getUserData[to].emissionMultiple += emissionMultiple;
             getUserData[to].memesOwned += 1;

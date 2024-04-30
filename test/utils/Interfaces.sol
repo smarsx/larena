@@ -7,7 +7,7 @@ contract Interfaces {
     function getEpochs(uint256 _epochID, Ocmeme _ocmeme) public view returns (Ocmeme.Epoch memory) {
         (
             uint8 claims,
-            uint16 count,
+            uint16 firstTokenID,
             uint32 goldPageID,
             uint32 silverPageID,
             uint32 bronzePageID,
@@ -16,7 +16,7 @@ contract Interfaces {
         return
             Ocmeme.Epoch({
                 claims: claims,
-                count: count,
+                firstTokenID: firstTokenID,
                 goldPageID: goldPageID,
                 silverPageID: silverPageID,
                 bronzePageID: bronzePageID,

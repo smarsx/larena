@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {stdError} from "forge-std/StdError.sol";
 import {fromDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -13,7 +13,7 @@ import {Utilities} from "../utils/Utilities.sol";
 
 contract PagesIntegrationTest is Test {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Utilities internal utils;
     address internal user;
@@ -30,14 +30,14 @@ contract PagesIntegrationTest is Test {
         utils = new Utilities();
         users = utils.createUsers(5, vm);
 
-        goo = new Goo(
+        coin = new Coin(
             // Ocmeme:
             address(this),
             // Pages:
             utils.predictContractAddress(address(this), 1, vm)
         );
 
-        pages = new Pages(block.timestamp, goo, address(vault), Ocmeme(address(this)));
+        pages = new Pages(block.timestamp, coin, address(vault), Ocmeme(address(this)));
 
         user = users[0];
     }
@@ -45,7 +45,7 @@ contract PagesIntegrationTest is Test {
     function testMintBeforeSetMint() public {
         vm.expectRevert(InsufficientBalance.selector);
         vm.prank(user);
-        pages.mintFromGoo(type(uint256).max, false);
+        pages.mintFromCoin(type(uint256).max, false);
     }
 
     function testMintBeforeStart() public {
@@ -53,13 +53,13 @@ contract PagesIntegrationTest is Test {
 
         vm.expectRevert(stdError.arithmeticError);
         vm.prank(user);
-        pages.mintFromGoo(type(uint256).max, false);
+        pages.mintFromCoin(type(uint256).max, false);
     }
 
     function testRegularMint() public {
-        goo.mintGoo(user, pages.pagePrice());
+        coin.mintCoin(user, pages.pagePrice());
         vm.prank(user);
-        pages.mintFromGoo(type(uint256).max, false);
+        pages.mintFromCoin(type(uint256).max, false);
         assertEq(user, pages.ownerOf(1));
     }
 
@@ -135,23 +135,23 @@ contract PagesIntegrationTest is Test {
     function testInsufficientBalance() public {
         vm.prank(user);
         vm.expectRevert(InsufficientBalance.selector);
-        pages.mintFromGoo(type(uint256).max, false);
+        pages.mintFromCoin(type(uint256).max, false);
     }
 
     function testMintPriceExceededMax() public {
         uint256 cost = pages.pagePrice();
-        goo.mintGoo(user, cost);
+        coin.mintCoin(user, cost);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Pages.PriceExceededMax.selector, cost));
-        pages.mintFromGoo(cost - 1, false);
+        pages.mintFromCoin(cost - 1, false);
     }
 
     function mintPageToAddress(address addr, uint256 num) internal {
         for (uint256 i = 0; i < num; ++i) {
-            goo.mintGoo(addr, pages.pagePrice());
+            coin.mintCoin(addr, pages.pagePrice());
 
             vm.prank(addr);
-            pages.mintFromGoo(type(uint256).max, false);
+            pages.mintFromCoin(type(uint256).max, false);
         }
     }
 

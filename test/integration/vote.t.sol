@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -15,7 +15,7 @@ import {Interfaces} from "../utils/Interfaces.sol";
 
 contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -25,18 +25,18 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
 
     function setUp() public {
         utils = new Utilities();
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(ocmeme.owner());
@@ -45,10 +45,10 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         // mint page
         uint256 price = pages.pagePrice();
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, price);
+        coin.mintCoin(actor, price);
 
         vm.prank(address(actor));
-        pageID = pages.mintFromGoo(price, false);
+        pageID = pages.mintFromCoin(price, false);
 
         // submit
         vm.prank(address(actor));
@@ -56,12 +56,12 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     }
 
     function testNoDeadzone(uint256 _warp, uint200 _amt) public {
-        vm.assume(_warp < ocmeme.VDEADZONE());
+        vm.assume(_warp < ocmeme.DECAY_ZONE());
         vm.warp(block.timestamp + _warp);
 
         // mint too to be used in vote.
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, _amt);
+        coin.mintCoin(actor, _amt);
 
         // vote and capture before/after.
         Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
@@ -79,12 +79,12 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         vm.warp(block.timestamp + _warp);
 
         (, uint256 start) = ocmeme.currentEpoch();
-        bool isdz = block.timestamp - start > ocmeme.VDEADZONE();
+        bool isdz = block.timestamp - start > ocmeme.DECAY_ZONE();
 
         Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
 
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, _amt);
+        coin.mintCoin(actor, _amt);
 
         vm.prank(actor);
         ocmeme.vote(pageID, _amt, false);
@@ -100,10 +100,10 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
 
     function testDeadzone() public brutalizeMemory {
         (, uint256 start) = ocmeme.currentEpoch();
-        vm.warp(start + ocmeme.VDEADZONE() + 1 hours);
+        vm.warp(start + ocmeme.DECAY_ZONE() + 1 hours);
 
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, 100 ether);
+        coin.mintCoin(actor, 100 ether);
 
         uint256[] memory diffs = new uint256[](5);
         for (uint i; i < 5; i++) {
@@ -133,13 +133,13 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         // mint page
         uint256 price = pages.pagePrice();
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, price);
+        coin.mintCoin(actor, price);
 
         vm.prank(address(actor));
-        uint256 mypage = pages.mintFromGoo(price, false);
+        uint256 mypage = pages.mintFromCoin(price, false);
 
         // submit, reverse time if submission deadzone. need to submit to vote.
-        while (block.timestamp > start + ocmeme.SDEADZONE()) {
+        while (block.timestamp > start + ocmeme.SUBMISSION_DEADLINE()) {
             vm.warp(block.timestamp - 1 days);
         }
         vm.prank(address(actor));
@@ -147,7 +147,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
 
         // mint _amt to be voted with
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, _amt);
+        coin.mintCoin(actor, _amt);
 
         // vote and capture before/after results
         Ocmeme.Vote memory vp = getVotes(mypage, ocmeme);
@@ -155,7 +155,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         ocmeme.vote(mypage, _amt, false);
         Ocmeme.Vote memory vp2 = getVotes(mypage, ocmeme);
 
-        if (block.timestamp > start + ocmeme.VDEADZONE()) {
+        if (block.timestamp > start + ocmeme.DECAY_ZONE()) {
             assertTrue(vp2.votes - vp.votes < _amt);
         } else {
             assertEq(vp2.votes - vp.votes, _amt);
@@ -170,7 +170,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
 
         // mint _amt to be voted with
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, amt);
+        coin.mintCoin(actor, amt);
 
         // vote and capture before/after results
         Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);
@@ -185,11 +185,11 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         uint256 amt = 1000 ether;
         uint256 expectedAmt = 963 ether;
         (, uint256 start) = ocmeme.currentEpoch();
-        vm.warp(start + ocmeme.VDEADZONE() + 1);
+        vm.warp(start + ocmeme.DECAY_ZONE() + 1);
 
         // mint _amt to be voted with
         vm.prank(address(ocmeme));
-        goo.mintGoo(actor, amt);
+        coin.mintCoin(actor, amt);
 
         // vote and capture before/after results
         Ocmeme.Vote memory vp = getVotes(pageID, ocmeme);

@@ -8,7 +8,7 @@ import {Ocmeme} from "../../src/Ocmeme.sol";
 import {toDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {console2 as console} from "forge-std/console2.sol";
 
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
 
 contract OcmemeCorrectnessTest is DSTestPlus {
@@ -20,12 +20,12 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
     int256 internal LOGISTIC_SCALE;
 
-    int256 internal immutable INITIAL_PRICE = .025e18;
+    int256 internal immutable INITIAL_PRICE = .0125e18;
 
     int256 internal immutable PER_PERIOD_PRICE_DECREASE = 0.31e18;
 
     int256 internal immutable TIME_SCALE = 0.0138e18;
-    int256 internal immutable SWITCHOVER_TIME = 9994.930541e18;
+    int256 internal immutable SWITCHOVER_TIME = 1800e18;
     int256 internal immutable PER_PERIOD_POST_SWITCHOVER = 1e18;
 
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
@@ -33,7 +33,7 @@ contract OcmemeCorrectnessTest is DSTestPlus {
     Ocmeme internal ocmeme;
 
     function setUp() public {
-        ocmeme = new Ocmeme(Goo(address(0)), Pages(address(0)), address(0));
+        ocmeme = new Ocmeme(Coin(address(0)), Pages(address(0)), address(0));
         LOGISTIC_SCALE = int256((MAX_MINTABLE + 1) * 2e18);
     }
 

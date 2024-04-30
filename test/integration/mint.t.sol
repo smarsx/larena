@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -13,7 +13,7 @@ import {Interfaces} from "../utils/Interfaces.sol";
 
 contract MintIntegrationTest is Test, Interfaces {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -21,18 +21,18 @@ contract MintIntegrationTest is Test, Interfaces {
 
     function setUp() public {
         utils = new Utilities();
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(ocmeme.owner());
@@ -56,14 +56,12 @@ contract MintIntegrationTest is Test, Interfaces {
         }
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(_amt, e.count);
         assertEq(_amt, ocmeme.$prevTokenID());
 
         // vault mint, which uses different mint function
         ocmeme.vaultMint();
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(_amt + vaultNum, e.count);
         assertEq(_amt + vaultNum, ocmeme.$prevTokenID());
 
         for (uint i; i < _amt; i++) {
@@ -74,7 +72,6 @@ contract MintIntegrationTest is Test, Interfaces {
         }
 
         e = getEpochs(epochID, ocmeme);
-        assertEq(_amt + _amt + vaultNum, e.count);
         assertEq(_amt + _amt + vaultNum, ocmeme.$prevTokenID());
     }
 }

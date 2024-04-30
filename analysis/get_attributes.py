@@ -14,27 +14,21 @@ def main(args):
             return x[args.type]
         elif args.type == "emissionMultiple":
             return encode_uint32(x[args.type])
-        elif args.type == "status":
-            return x[args.type]
         else:
             raise Exception("invalid type")
 
 
 def json_to_obj(x):
-    status = None
-    ks = x.keys()
+    kys = x.keys()
     attr = x["attributes"]
-    content_key = "image" if "image" in ks else "animation_url"
+    content_key = "image" if "image" in kys else "animation_url"
     emissionMultiple = attr[0]["value"]
-    if len(attr) > 1:
-        status = attr[1]["value"]
 
     return {
         "name": x["name"],
         "description": x["description"],
         "content": x[content_key],
         "emissionMultiple": emissionMultiple,
-        "status": status,
     }
 
 
@@ -51,7 +45,7 @@ def encode_string(resp):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "type", choices=["name", "description", "content", "emissionMultiple", "status"]
+        "type", choices=["name", "description", "content", "emissionMultiple"]
     )
     parser.add_argument("--path", type=str)
     return parser.parse_args()

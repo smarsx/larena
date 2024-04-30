@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Ocmeme} from "../../../src/Ocmeme.sol";
-import {Goo} from "../../../src/Goo.sol";
+import {Coin} from "../../../src/Coin.sol";
 import {Pages} from "../../../src/Pages.sol";
 import {Reserve} from "../../../src/utils/Reserve.sol";
 import {NFTMeta} from "../../../src/libraries/NFTMeta.sol";
@@ -15,7 +15,7 @@ import {Interfaces} from "../../utils/Interfaces.sol";
 contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
     Ocmeme ocmeme;
     Pages pages;
-    Goo goo;
+    Coin coin;
     Reserve reserve;
 
     address[] users = [
@@ -71,10 +71,10 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
         _;
     }
 
-    constructor(Ocmeme _ocmeme, Pages _pages, Goo _goo, Reserve _reserve) {
+    constructor(Ocmeme _ocmeme, Pages _pages, Coin _coin, Reserve _reserve) {
         ocmeme = _ocmeme;
         pages = _pages;
-        goo = _goo;
+        coin = _coin;
         reserve = _reserve;
     }
 
@@ -90,7 +90,7 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
     function vote(uint256 _seed) public virtual useUser(_seed) usePage(_seed) countCall("vote") {
         uint256 amt = uint32(_seed);
         vm.prank(address(ocmeme));
-        goo.mintGoo(currentUser, amt);
+        coin.mintCoin(currentUser, amt);
 
         vm.prank(currentUser);
         ocmeme.vote(currentPageID, amt, false);
@@ -98,27 +98,27 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
 
     function submit(uint256 _seed) public virtual useUser(_seed) countCall("submit") {
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.gooBalance(currentUser);
+        uint256 bal = ocmeme.coinBalance(currentUser);
         bool useVirtual = _seed % 2 == 0;
 
         if (bal < price) {
             vm.prank(address(ocmeme));
-            goo.mintGoo(currentUser, price);
+            coin.mintCoin(currentUser, price);
             if (useVirtual) {
                 vm.prank(currentUser);
-                ocmeme.addGoo(price);
+                ocmeme.addCoin(price);
             }
         } else {
             // vbalance > price
             if (!useVirtual) {
                 // withdrawal
                 vm.prank(currentUser);
-                ocmeme.removeGoo(price);
+                ocmeme.removeCoin(price);
             }
         }
 
         vm.prank(currentUser);
-        uint256 pageID = pages.mintFromGoo(price, useVirtual);
+        uint256 pageID = pages.mintFromCoin(price, useVirtual);
         vm.prank(currentUser);
         ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         pageIds.push(pageID);

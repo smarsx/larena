@@ -5,7 +5,7 @@ import {toDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {LinearVRGDA} from "VRGDAs/LinearVRGDA.sol";
 import {SSTORE2} from "solady/utils/SSTORE2.sol";
 
-import {Goo} from "./Goo.sol";
+import {Coin} from "./Coin.sol";
 import {Ocmeme} from "./Ocmeme.sol";
 import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {PagesERC721} from "./utils/token/PagesERC721.sol";
@@ -19,8 +19,8 @@ contract Pages is PagesERC721, LinearVRGDA {
                                 ADDRESSES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The address of the goo ERC20 token contract.
-    Goo public immutable goo;
+    /// @notice The address of the coin ERC20 token contract.
+    Coin public immutable coin;
 
     /// @notice The address which receives pages reserved for the community.
     address public immutable vault;
@@ -69,12 +69,12 @@ contract Pages is PagesERC721, LinearVRGDA {
 
     /// @notice Sets VRGDA parameters, mint start, relevant addresses, and base URI.
     /// @param _mintStart Timestamp for the start of the VRGDA mint.
-    /// @param _goo Address of the Goo contract.
+    /// @param _coin Address of the Coin contract.
     /// @param _vault Address of the vault.
     /// @param _ocmeme Address of the Ocmeme contract.
     constructor(
         uint256 _mintStart,
-        Goo _goo,
+        Coin _coin,
         address _vault,
         Ocmeme _ocmeme
     )
@@ -86,7 +86,7 @@ contract Pages is PagesERC721, LinearVRGDA {
         )
     {
         mintStart = _mintStart;
-        goo = _goo;
+        coin = _coin;
         vault = _vault;
     }
 
@@ -103,15 +103,15 @@ contract Pages is PagesERC721, LinearVRGDA {
 
     /// @notice Page metadata.
     struct Metadata {
-        address pointer;
         uint96 royalty;
+        address pointer;
     }
 
     /// @notice Map pageIds to metadata
-    mapping(uint256 => Metadata) public metadatas;
+    mapping(uint256 => Metadata) public pageMetadata;
 
     function GetMetadata(uint256 _pageID) public view returns (Metadata memory _metadata) {
-        _metadata = metadatas[_pageID];
+        _metadata = pageMetadata[_pageID];
     }
 
     /// @notice Set royalty and SSTORE2 pointer for page.
@@ -123,20 +123,20 @@ contract Pages is PagesERC721, LinearVRGDA {
         uint256 _royalty,
         address _pointer
     ) external only(address(ocmeme)) {
-        if (metadatas[_pageID].pointer != address(0)) revert Used();
-        metadatas[_pageID] = Metadata({pointer: _pointer, royalty: uint96(_royalty)});
+        if (pageMetadata[_pageID].pointer != address(0)) revert Used();
+        pageMetadata[_pageID] = Metadata({pointer: _pointer, royalty: uint96(_royalty)});
     }
 
     /*//////////////////////////////////////////////////////////////
                               MINTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Mint a page with goo, burning the cost.
+    /// @notice Mint a page with coin, burning the cost.
     /// @param maxPrice Maximum price to pay to mint the page.
     /// @param useVirtualBalance Whether the cost is paid from the
-    /// user's virtual goo balance, or from their ERC20 goo balance.
+    /// user's virtual coin balance, or from their ERC20 coin balance.
     /// @return pageId The id of the page that was minted.
-    function mintFromGoo(
+    function mintFromCoin(
         uint256 maxPrice,
         bool useVirtualBalance
     ) external returns (uint256 pageId) {
@@ -146,11 +146,11 @@ contract Pages is PagesERC721, LinearVRGDA {
         // If the current price is above the user's specified max, revert.
         if (currentPrice > maxPrice) revert PriceExceededMax(currentPrice);
 
-        // Decrement the user's goo balance by the current
+        // Decrement the user's coin balance by the current
         // price, either from virtual balance or ERC20 balance.
         useVirtualBalance
-            ? ocmeme.burnGooForPages(msg.sender, currentPrice)
-            : goo.burnForPages(msg.sender, currentPrice);
+            ? ocmeme.burnCoinForPages(msg.sender, currentPrice)
+            : coin.burnForPages(msg.sender, currentPrice);
 
         unchecked {
             emit PagePurchased(msg.sender, pageId = ++currentId, currentPrice);
@@ -180,7 +180,7 @@ contract Pages is PagesERC721, LinearVRGDA {
     /// @notice Mint a number of pages to the community reserve.
     /// @param numPages The number of pages to mint to the reserve.
     /// @dev Pages minted to the reserve cannot comprise more than 10% of the sum of the
-    /// supply of goo minted pages and the supply of pages minted to the community reserve.
+    /// supply of coin minted pages and the supply of pages minted to the community reserve.
     function mintVaultPages(uint256 numPages) external returns (uint256 lastMintedPageId) {
         unchecked {
             // Optimistically increment numMintedForCommunity, may be reverted below.
@@ -210,8 +210,8 @@ contract Pages is PagesERC721, LinearVRGDA {
     /// @param pageID The id of the page to get the URI for.
     function tokenURI(uint256 pageID) public view virtual override returns (string memory) {
         if (pageID == 0 || pageID > currentId) revert("NOT_MINTED");
-        if (metadatas[pageID].pointer == address(0)) revert("NOT_SET");
+        if (pageMetadata[pageID].pointer == address(0)) revert("NOT_SET");
 
-        return NFTMeta.render(SSTORE2.read(metadatas[pageID].pointer));
+        return NFTMeta.render(SSTORE2.read(pageMetadata[pageID].pointer));
     }
 }

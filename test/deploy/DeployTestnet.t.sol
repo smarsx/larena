@@ -32,16 +32,16 @@ contract DeployTestnetTest is Test {
         deployScript.run();
     }
 
-    /// @notice Test goo addresses where correctly set.
-    function testGooAddressCorrectness() public view {
-        assertEq(deployScript.goo().ocmeme(), address(deployScript.ocmeme()));
-        assertEq(address(deployScript.goo().pages()), address(deployScript.pages()));
+    /// @notice Test coin addresses where correctly set.
+    function testCoinAddressCorrectness() public view {
+        assertEq(deployScript.coin().ocmeme(), address(deployScript.ocmeme()));
+        assertEq(address(deployScript.coin().pages()), address(deployScript.pages()));
     }
 
     /// @notice Test page addresses where correctly set.
     function testPagesAddressCorrectness() public view {
         assertEq(address(deployScript.pages().ocmeme()), address(deployScript.ocmeme()));
-        assertEq(address(deployScript.pages().goo()), address(deployScript.goo()));
+        assertEq(address(deployScript.pages().coin()), address(deployScript.coin()));
     }
 
     /// @notice Test that ocmeme ownership is correctly transferred to cold wallet.

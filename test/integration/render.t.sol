@@ -8,7 +8,7 @@ import {SSTORE2} from "solady/utils/SSTORE2.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Decoder} from "../utils/Decoder.sol";
@@ -16,7 +16,7 @@ import {MemoryPlus} from "../utils/Memory.sol";
 
 contract RenderTest is Test, Content, MemoryPlus {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -33,18 +33,18 @@ contract RenderTest is Test, Content, MemoryPlus {
         decoder = new Decoder();
         super.setUp();
 
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
 
         user = utils.createUsers(1, vm)[0];
 
@@ -75,7 +75,7 @@ contract RenderTest is Test, Content, MemoryPlus {
         string memory uri = ocmeme.tokenURI(_tokenID);
         _checkMemory(uri);
 
-        Decoder.DecodedContent memory res = decoder.decodeContent(
+        Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.IMG,
             1,
@@ -83,8 +83,8 @@ contract RenderTest is Test, Content, MemoryPlus {
             uri
         );
 
-        assertEq(res.name, title);
-        assertEq(res.description, title);
+        assertEq(decoded.name, title);
+        assertEq(decoded.description, title);
     }
 
     function testUri() public {
@@ -94,9 +94,9 @@ contract RenderTest is Test, Content, MemoryPlus {
 
         uint256 p = pages.pagePrice();
         vm.prank(address(ocmeme));
-        goo.mintGoo(user, p);
+        coin.mintCoin(user, p);
         vm.prank(user);
-        uint256 pageID = pages.mintFromGoo(p, false);
+        uint256 pageID = pages.mintFromCoin(p, false);
 
         vm.prank(user);
         ocmeme.submit(pageID, 0, NFTMeta.TypeURI(0), expectedDescription, expectedSvg);
@@ -108,7 +108,7 @@ contract RenderTest is Test, Content, MemoryPlus {
         string memory uri = ocmeme.tokenURI(1);
         _checkMemory(uri);
 
-        Decoder.DecodedContent memory res = decoder.decodeContent(
+        Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.IMG,
             2,
@@ -116,9 +116,9 @@ contract RenderTest is Test, Content, MemoryPlus {
             uri
         );
 
-        assertEq(res.name, title);
-        assertEq(res.description, expectedDescription);
-        assertEq(res.content, expectedSvg);
+        assertEq(decoded.name, title);
+        assertEq(decoded.description, expectedDescription);
+        assertEq(decoded.content, expectedSvg);
     }
 
     function testUriHtml() public {
@@ -129,9 +129,9 @@ contract RenderTest is Test, Content, MemoryPlus {
         uint256 p = pages.pagePrice();
 
         vm.prank(address(ocmeme));
-        goo.mintGoo(user, p);
+        coin.mintCoin(user, p);
         vm.prank(address(user));
-        uint256 pageID = pages.mintFromGoo(p, false);
+        uint256 pageID = pages.mintFromCoin(p, false);
 
         vm.prank(user);
         ocmeme.submit(pageID, 0, NFTMeta.TypeURI(1), expectedDescription, expectedAni);
@@ -143,7 +143,7 @@ contract RenderTest is Test, Content, MemoryPlus {
         string memory uri = ocmeme.tokenURI(1);
         _checkMemory(uri);
 
-        Decoder.DecodedContent memory res = decoder.decodeContent(
+        Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.ANIMATION,
             2,
@@ -151,9 +151,9 @@ contract RenderTest is Test, Content, MemoryPlus {
             uri
         );
 
-        assertEq(res.name, title);
-        assertEq(res.description, expectedDescription);
-        assertEq(res.content, expectedAni);
+        assertEq(decoded.name, title);
+        assertEq(decoded.description, expectedDescription);
+        assertEq(decoded.content, expectedAni);
     }
 
     function testEmptyBaseURI() public {

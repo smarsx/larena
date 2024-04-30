@@ -6,7 +6,7 @@ import {console2 as console} from "forge-std/console2.sol";
 import {stdError} from "forge-std/StdError.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Ocmeme} from "../../src/Ocmeme.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
@@ -18,7 +18,7 @@ import {Interfaces} from "../utils/Interfaces.sol";
 
 contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
     Ocmeme ocmeme;
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -27,18 +27,18 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
 
     function setUp() public {
         utils = new Utilities();
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
         actor = utils.createUsers(1, vm)[0];
         actors = utils.createUsers(10, vm);
 
@@ -60,10 +60,10 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
             // mint page
             uint256 price = pages.pagePrice();
             vm.prank(address(ocmeme));
-            goo.mintGoo(actor, price);
+            coin.mintCoin(actor, price);
 
             vm.prank(address(actor));
-            uint256 pageID = pages.mintFromGoo(price, false);
+            uint256 pageID = pages.mintFromCoin(price, false);
 
             // submit
             vm.prank(address(actor));
@@ -143,10 +143,10 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
             // mint page
             uint256 price = pages.pagePrice();
             vm.prank(address(ocmeme));
-            goo.mintGoo(actor, price);
+            coin.mintCoin(actor, price);
 
             vm.prank(address(actor));
-            uint256 pageID = pages.mintFromGoo(price, false);
+            uint256 pageID = pages.mintFromCoin(price, false);
 
             // submit
             vm.prank(address(actor));
@@ -192,10 +192,10 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
             uint256 price = pages.pagePrice();
 
             vm.prank(address(ocmeme));
-            goo.mintGoo(act, price + i);
+            coin.mintCoin(act, price + i);
 
             vm.startPrank(address(act));
-            uint256 pageID = pages.mintFromGoo(price, false);
+            uint256 pageID = pages.mintFromCoin(price, false);
             ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
 
             ocmeme.vote(pageID, i, false);

@@ -7,7 +7,7 @@ import {console2 as console} from "forge-std/console2.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Ocmeme} from "../../src/Ocmeme.sol";
-import {Goo} from "../../src/Goo.sol";
+import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {MainActor} from "./actors/mainActor.sol";
@@ -18,7 +18,7 @@ contract MainInvariantTest is Test, Interfaces {
     Ocmeme public ocmeme;
     MainActor public actor;
 
-    Goo internal goo;
+    Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
     Utilities internal utils;
@@ -27,7 +27,7 @@ contract MainInvariantTest is Test, Interfaces {
         utils = new Utilities();
 
         // pre-deploy compute deployed address
-        address gooAddress = utils.predictContractAddress(address(this), 1, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
         address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
         address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
 
@@ -35,19 +35,19 @@ contract MainInvariantTest is Test, Interfaces {
         reserve = new Reserve(
             Ocmeme(ocmemeAddress),
             Pages(pagesAddress),
-            Goo(gooAddress),
+            Coin(coinAddress),
             address(this)
         );
-        goo = new Goo(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, goo, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(goo, Pages(pagesAddress), address(reserve));
+        coin = new Coin(ocmemeAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
+        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
 
         // set start
         vm.prank(ocmeme.owner());
         ocmeme.setStart();
 
         // create handler
-        actor = new MainActor(ocmeme, pages, goo, reserve);
+        actor = new MainActor(ocmeme, pages, coin, reserve);
 
         // transfer ownership to handler
         ocmeme.transferOwnership(address(actor));
@@ -103,17 +103,6 @@ contract MainInvariantTest is Test, Interfaces {
             uint256[] memory pageIds = ocmeme.getSubmissions(i);
             assertTrue(pageIds.length <= ocmeme.MAX_SUBMISSIONS());
         }
-    }
-
-    // sum epoch.count = tokenid
-    function invariant_tokenId() public view {
-        uint256 sumCount;
-        (uint256 maxid, ) = ocmeme.currentEpoch();
-        for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
-            sumCount += uint256(e.count);
-        }
-        assertEq(uint256(ocmeme.$prevTokenID()), sumCount);
     }
 
     function invariant_meme_accounting() public view {
@@ -215,6 +204,19 @@ contract MainInvariantTest is Test, Interfaces {
                 assertEq(e.silverPageID, silver);
                 assertEq(e.bronzePageID, bronze);
             }
+        }
+    }
+
+    function invariant_index_strictly_inc_or_resets() public view {
+        uint256 maxTokenId = ocmeme.$prevTokenID();
+        uint256 prev;
+
+        for (uint256 i = 1; i <= maxTokenId; i++) {
+            (uint256 index, , , ) = ocmeme.getMemeData(i);
+            if (1 == index) {} else {
+                assertTrue(index - prev == 1);
+            }
+            prev = index;
         }
     }
 }

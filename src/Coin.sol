@@ -6,7 +6,7 @@ import {ERC20} from "solady/tokens/ERC20.sol";
 /// @notice ERC20 continiously lazy-emitted by Ocmeme. Used to mint/vote for Pages.
 /// @author smarsx.eth
 /// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Pages.sol)
-contract Goo is ERC20 {
+contract Coin is ERC20 {
     error Unauthorized();
     address public immutable ocmeme;
     address public immutable pages;
@@ -18,12 +18,12 @@ contract Goo is ERC20 {
 
     /// @dev Returns the name of the token.
     function name() public view virtual override returns (string memory) {
-        return "GOO";
+        return "COIN";
     }
 
     /// @dev Returns the symbol of the token.
     function symbol() public view virtual override returns (string memory) {
-        return "GOO";
+        return "COIN";
     }
 
     /// @notice Requires caller address to match user address.
@@ -33,23 +33,23 @@ contract Goo is ERC20 {
         _;
     }
 
-    /// @notice Mint any amount of goo to a user. Can only be called by Ocmeme.
-    /// @param to The address of the user to mint goo to.
-    /// @param amount The amount of goo to mint.
-    function mintGoo(address to, uint256 amount) external only(ocmeme) {
+    /// @notice Mint any amount of coin to a user. Can only be called by Ocmeme.
+    /// @param to The address of the user to mint coin to.
+    /// @param amount The amount of coin to mint.
+    function mintCoin(address to, uint256 amount) external only(ocmeme) {
         _mint(to, amount);
     }
 
-    /// @notice Burn any amount of goo from a user. Can only be called by Ocmeme.
-    /// @param from The address of the user to burn goo from.
-    /// @param amount The amount of goo to burn.
-    function burnGoo(address from, uint256 amount) external only(ocmeme) {
+    /// @notice Burn any amount of coin from a user. Can only be called by Ocmeme.
+    /// @param from The address of the user to burn coin from.
+    /// @param amount The amount of coin to burn.
+    function burnCoin(address from, uint256 amount) external only(ocmeme) {
         _burn(from, amount);
     }
 
-    /// @notice Burn any amount of goo from a user. Can only be called by Pages.
-    /// @param from The address of the user to burn goo from.
-    /// @param amount The amount of goo to burn.
+    /// @notice Burn any amount of coin from a user. Can only be called by Pages.
+    /// @param from The address of the user to burn coin from.
+    /// @param amount The amount of coin to burn.
     function burnForPages(address from, uint256 amount) external only(pages) {
         _burn(from, amount);
     }
