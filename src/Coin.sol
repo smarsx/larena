@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "solady/tokens/ERC20.sol";
 
 /// @notice ERC20 continiously lazy-emitted by Ocmeme. Used to mint/vote for Pages.
-/// @author smarsx.eth
-/// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Pages.sol)
+/// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Goo.sol)
 contract Coin is ERC20 {
     error Unauthorized();
     address public immutable ocmeme;

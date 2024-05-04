@@ -11,7 +11,6 @@ import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {PagesERC721} from "./utils/token/PagesERC721.sol";
 
 /// @title Pages NFT
-/// @author smarsx.eth
 /// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Pages.sol)
 /// @notice Pages is an ERC721 with extra metadata. (royalty, votes, pointer (data))
 contract Pages is PagesERC721, LinearVRGDA {
