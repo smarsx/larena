@@ -32,14 +32,14 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     using LibString for uint256;
 
     /// @dev The day the switch from a logistic to translated linear VRGDA is targeted to occur.
-    int256 internal constant SWITCH_DAY_WAD = 1800e18;
+    int256 internal constant SWITCH_DAY_WAD = 1230e18;
 
     /// @notice The minimum amount of pages that must be sold for the VRGDA issuance
     /// schedule to switch from logistic to linear formula.
-    int256 internal constant SOLD_BY_SWITCH_WAD = 9999e18;
+    int256 internal constant SOLD_BY_SWITCH_WAD = 9930e18;
 
     /// @notice Initial number allowed to be minted to vault per epoch.
-    /// @dev decreases over time eventually to zero.
+    /// @dev decreases over time eventually to 1.
     /// @dev at switch to linear, vault supply will be ~5% of total supply.
     uint256 public constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
 
@@ -78,9 +78,11 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     Pages public immutable $pages;
 
     /// @notice The last minted token id.
+    /// @dev packed into slot 6 following owner
     uint64 public $prevTokenID;
 
     /// @notice Initial epoch timestamp.
+    /// @dev packed into slot 6 following $prevTokenID
     uint32 public $start;
 
     /// @notice The url to access ocmeme uri.
@@ -89,7 +91,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     string public $baseURI;
 
     /*//////////////////////////////////////////////////////////////
-                                STRUCTURES
+                            STRUCTURES / MAPPINGS
     //////////////////////////////////////////////////////////////*/
 
     enum ClaimType {
@@ -179,7 +181,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
             0.0138e18, // Logistic time scale.
             SOLD_BY_SWITCH_WAD,
             SWITCH_DAY_WAD,
-            0.03e18 // linear target per day.
+            0.3e18 // linear target per day.
         )
     {
         $coin = _coin;
@@ -429,7 +431,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
         if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
 
-        uint256 vaultNum = epochID > 55 ? 0 : epochID > 28
+        uint256 vaultNum = epochID > 36 ? 1 : epochID > 28
             ? 2
             : INITIAL_VAULT_SUPPLY_PER_EPOCH - epochID;
         if (vaultNum == 0) revert();

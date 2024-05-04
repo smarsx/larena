@@ -25,8 +25,8 @@ contract OcmemeCorrectnessTest is DSTestPlus {
     int256 internal immutable PER_PERIOD_PRICE_DECREASE = 0.31e18;
 
     int256 internal immutable TIME_SCALE = 0.0138e18;
-    int256 internal immutable SWITCHOVER_TIME = 1800e18;
-    int256 internal immutable PER_PERIOD_POST_SWITCHOVER = 1e18;
+    int256 internal immutable SWITCHOVER_TIME = 1230e18;
+    int256 internal immutable PER_PERIOD_POST_SWITCHOVER = 10e18;
 
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
@@ -39,7 +39,7 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
     function testFFICorrectness(uint256 timeSinceStart, uint256 numSold) public {
         // Limit num sold to max mint.
-        numSold = bound(numSold, 0, MAX_MINTABLE);
+        numSold = bound(numSold, 0, MAX_MINTABLE - 1);
 
         // Limit mint time to 20 years.
         timeSinceStart = bound(timeSinceStart, 0, TWENTY_YEARS);
@@ -62,7 +62,6 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
             if (expectedPrice < 0.0000000000001e18) return; // For really small prices we can't expect them to be equal.
 
-            // Equal within 1 percent.
             assertRelApproxEq(actualPrice, expectedPrice, 0.01e18);
         } catch {
             // If it reverts that's fine, there are some bounds on the function, they are tested in VRGDAs.t.sol
