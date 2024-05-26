@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Owned} from "solmate/auth/Owned.sol";
 
-import {Ocmeme} from "../Ocmeme.sol";
+import {Larena} from "../Larena.sol";
 import {Pages} from "../Pages.sol";
 import {Coin} from "../Coin.sol";
 
@@ -14,20 +14,20 @@ interface IERC20 {
 }
 
 contract Reserve is Owned {
-    Ocmeme public immutable ocmeme;
+    Larena public immutable larena;
     Pages public immutable pages;
     Coin public immutable coin;
 
-    constructor(Ocmeme _ocmeme, Pages _pages, Coin _coin, address _owner) Owned(_owner) {
-        ocmeme = _ocmeme;
+    constructor(Larena _larena, Pages _pages, Coin _coin, address _owner) Owned(_owner) {
+        larena = _larena;
         pages = _pages;
         coin = _coin;
     }
 
-    function withdrawalOcmeme(address _to, uint256[] calldata _ids) external onlyOwner {
+    function withdrawalLarena(address _to, uint256[] calldata _ids) external onlyOwner {
         unchecked {
             for (uint256 i; i < _ids.length; ++i) {
-                ocmeme.transferFrom(address(this), _to, _ids[i]);
+                larena.transferFrom(address(this), _to, _ids[i]);
             }
         }
     }
@@ -37,7 +37,7 @@ contract Reserve is Owned {
     }
 
     function withdrawalCoin(address _to, uint256 _coin) external onlyOwner {
-        ocmeme.removeCoin(_coin);
+        larena.removeCoin(_coin);
         coin.transfer(_to, _coin);
     }
 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 
 contract Interfaces {
-    function getEpochs(uint256 _epochID, Ocmeme _ocmeme) public view returns (Ocmeme.Epoch memory) {
+    function getEpochs(uint256 _epochID, Larena _larena) public view returns (Larena.Epoch memory) {
         (
             uint8 claims,
             uint16 firstTokenID,
@@ -12,9 +12,9 @@ contract Interfaces {
             uint32 silverPageID,
             uint32 bronzePageID,
             uint136 proceeds
-        ) = _ocmeme.$epochs(_epochID);
+        ) = _larena.$epochs(_epochID);
         return
-            Ocmeme.Epoch({
+            Larena.Epoch({
                 claims: claims,
                 firstTokenID: firstTokenID,
                 goldPageID: goldPageID,
@@ -24,8 +24,19 @@ contract Interfaces {
             });
     }
 
-    function getVotes(uint256 _pageID, Ocmeme _ocmeme) public view returns (Ocmeme.Vote memory) {
-        (uint40 epochEnd, uint216 votes) = _ocmeme.$votes(_pageID);
-        return Ocmeme.Vote({epochEnd: epochEnd, votes: votes});
+    function getVotes(uint256 _pageID, Larena _larena) public view returns (Larena.Vote memory) {
+        (uint40 epochEnd, uint216 votes) = _larena.$votes(_pageID);
+        return Larena.Vote({epochEnd: epochEnd, votes: votes});
+    }
+
+    function getVaultSupply(
+        uint256 _epochID,
+        uint256 _initial,
+        uint256 _fixed,
+        uint256 _switch
+    ) public pure returns (uint256) {
+        unchecked {
+            return _epochID > _switch ? _fixed : _initial - _epochID;
+        }
     }
 }

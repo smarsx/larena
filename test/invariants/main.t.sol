@@ -6,51 +6,54 @@ import {console2 as console} from "forge-std/console2.sol";
 
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {MainActor} from "./actors/mainActor.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
+import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 
 contract MainInvariantTest is Test, Interfaces {
-    Ocmeme public ocmeme;
+    Larena public larena;
     MainActor public actor;
 
     Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
+    Unrevealed internal unrevealed;
     Utilities internal utils;
 
     function setUp() public {
         utils = new Utilities();
 
         // pre-deploy compute deployed address
-        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
-        address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
-        address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 2, vm);
+        address pagesAddress = utils.predictContractAddress(address(this), 3, vm);
+        address larenaAddress = utils.predictContractAddress(address(this), 4, vm);
 
         // deploy
         reserve = new Reserve(
-            Ocmeme(ocmemeAddress),
+            Larena(larenaAddress),
             Pages(pagesAddress),
             Coin(coinAddress),
             address(this)
         );
-        coin = new Coin(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
+        unrevealed = new Unrevealed();
+        coin = new Coin(larenaAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
+        larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
 
         // set start
-        vm.prank(ocmeme.owner());
-        ocmeme.setStart();
+        vm.prank(larena.owner());
+        larena.setStart();
 
         // create handler
-        actor = new MainActor(ocmeme, pages, coin, reserve);
+        actor = new MainActor(larena, pages, coin, reserve);
 
         // transfer ownership to handler
-        ocmeme.transferOwnership(address(actor));
+        larena.transferOwnership(address(actor));
         reserve.transferOwnership(address(actor));
 
         // restrict function selectors in handler
@@ -70,43 +73,43 @@ contract MainInvariantTest is Test, Interfaces {
 
     // can pay claims
     function invariant_solvency() public view {
-        (uint256 maxid, ) = ocmeme.currentEpoch();
-        uint256 d = ocmeme.PAYOUT_DENOMINATOR();
+        (uint256 maxid, ) = larena.currentEpoch();
+        uint256 d = larena.PAYOUT_DENOMINATOR();
         uint256 credits;
         for (uint256 i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
-            uint256 goldClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.GOLD));
-            uint256 silverClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.SILVER));
-            uint256 bronzeClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.BRONZE));
-            uint256 vaultClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.VAULT));
+            Larena.Epoch memory e = getEpochs(i, larena);
+            uint256 goldClaims = e.claims & (1 << uint8(Larena.ClaimType.GOLD));
+            uint256 silverClaims = e.claims & (1 << uint8(Larena.ClaimType.SILVER));
+            uint256 bronzeClaims = e.claims & (1 << uint8(Larena.ClaimType.BRONZE));
+            uint256 vaultClaims = e.claims & (1 << uint8(Larena.ClaimType.VAULT));
 
             if (goldClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, ocmeme.GOLD_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.GOLD_SHARE(), d);
             }
             if (silverClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, ocmeme.SILVER_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.SILVER_SHARE(), d);
             }
             if (bronzeClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, ocmeme.BRONZE_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.BRONZE_SHARE(), d);
             }
             if (vaultClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, ocmeme.VAULT_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.VAULT_SHARE(), d);
             }
         }
-        assertTrue(address(ocmeme).balance >= credits);
+        assertTrue(address(larena).balance >= credits);
     }
 
     // each epoch.pages.length < max_submissions
     function invariant_pages() public view {
-        (uint256 maxid, ) = ocmeme.currentEpoch();
+        (uint256 maxid, ) = larena.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            uint256[] memory pageIds = ocmeme.getSubmissions(i);
-            assertTrue(pageIds.length <= ocmeme.MAX_SUBMISSIONS());
+            uint256[] memory pageIds = larena.getSubmissions(i);
+            assertTrue(pageIds.length <= larena.MAX_SUBMISSIONS());
         }
     }
 
-    function invariant_meme_accounting() public view {
-        uint256 maxTokenId = ocmeme.$prevTokenID();
+    function invariant_accounting() public view {
+        uint256 maxTokenId = larena.$prevTokenID();
         address[] memory users = actor.getUsers();
 
         uint32[] memory emissions = new uint32[](maxTokenId + 1);
@@ -114,7 +117,8 @@ contract MainInvariantTest is Test, Interfaces {
 
         // load token data
         for (uint256 i = 1; i <= maxTokenId; i++) {
-            (, uint32 _em, , address _owner) = ocmeme.getMemeData(i);
+            (, uint32 _em, , address _owner) = larena.getLarenaData(i);
+            assertTrue(_em > 0);
             emissions[i] = _em;
             owners[i] = _owner;
         }
@@ -132,7 +136,7 @@ contract MainInvariantTest is Test, Interfaces {
                 }
             }
 
-            (uint32 userCount, uint32 userEm, , ) = ocmeme.getUserData(user);
+            (uint32 userCount, uint32 userEm, , ) = larena.getUserData(user);
             assertEq(ocCount, userCount);
             assertEq(ocEm, userEm);
         }
@@ -142,7 +146,7 @@ contract MainInvariantTest is Test, Interfaces {
         // users
         address[] memory users = actor.getUsers();
         for (uint256 i; i < users.length; i++) {
-            (uint32 count, uint32 em, , ) = ocmeme.getUserData(users[i]);
+            (uint32 count, uint32 em, , ) = larena.getUserData(users[i]);
             assertTrue((count == 0 && em == 0) || em > count);
         }
     }
@@ -150,11 +154,11 @@ contract MainInvariantTest is Test, Interfaces {
     function invariant_no_claims() public view {
         uint256[] memory recoveries = actor.getRecoveries();
         for (uint i; i < recoveries.length; i++) {
-            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
-            uint256 goldClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.GOLD));
-            uint256 silverClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.SILVER));
-            uint256 bronzeClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.BRONZE));
-            uint256 vaultClaims = e.claims & (1 << uint8(Ocmeme.ClaimType.VAULT));
+            Larena.Epoch memory e = getEpochs(i, larena);
+            uint256 goldClaims = e.claims & (1 << uint8(Larena.ClaimType.GOLD));
+            uint256 silverClaims = e.claims & (1 << uint8(Larena.ClaimType.SILVER));
+            uint256 bronzeClaims = e.claims & (1 << uint8(Larena.ClaimType.BRONZE));
+            uint256 vaultClaims = e.claims & (1 << uint8(Larena.ClaimType.VAULT));
             assertTrue(goldClaims > 0);
             assertTrue(silverClaims > 0);
             assertTrue(bronzeClaims > 0);
@@ -163,9 +167,9 @@ contract MainInvariantTest is Test, Interfaces {
     }
 
     function invariant_winners() public view {
-        (uint256 maxid, ) = ocmeme.currentEpoch();
+        (uint256 maxid, ) = larena.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
-            Ocmeme.Epoch memory e = getEpochs(i, ocmeme);
+            Larena.Epoch memory e = getEpochs(i, larena);
             if (e.goldPageID > 0) {
                 uint256 gold;
                 uint256 silver;
@@ -173,9 +177,10 @@ contract MainInvariantTest is Test, Interfaces {
                 uint256 goldIdx;
                 uint256 silverIdx;
                 uint256 bronzeIdx;
-                uint256[] memory pageIDs = ocmeme.getSubmissions(i);
+                uint256[] memory pageIDs = larena.getSubmissions(i);
                 for (uint256 j; j < pageIDs.length; j++) {
-                    Ocmeme.Vote memory v = getVotes(j, ocmeme);
+                    uint256 pageId = pageIDs[j];
+                    Larena.Vote memory v = getVotes(pageId, larena);
                     if (v.votes > gold) {
                         // silver -> bronze
                         bronze = silver;
@@ -185,7 +190,7 @@ contract MainInvariantTest is Test, Interfaces {
                         silverIdx = goldIdx;
                         // new gold
                         gold = v.votes;
-                        goldIdx = i;
+                        goldIdx = j;
                     } else if (v.votes > silver) {
                         // silver -> bronze
                         bronze = silver;
@@ -193,26 +198,26 @@ contract MainInvariantTest is Test, Interfaces {
 
                         // new silver
                         silver = v.votes;
-                        silverIdx = i;
+                        silverIdx = j;
                     } else if (v.votes > bronze) {
                         // new bronze
                         bronze = v.votes;
-                        bronzeIdx = i;
+                        bronzeIdx = j;
                     }
                 }
-                assertEq(e.goldPageID, gold);
-                assertEq(e.silverPageID, silver);
-                assertEq(e.bronzePageID, bronze);
+                assertEq(e.goldPageID, pageIDs[goldIdx]);
+                assertEq(e.silverPageID, pageIDs[silverIdx]);
+                assertEq(e.bronzePageID, pageIDs[bronzeIdx]);
             }
         }
     }
 
     function invariant_index_strictly_inc_or_resets() public view {
-        uint256 maxTokenId = ocmeme.$prevTokenID();
+        uint256 maxTokenId = larena.$prevTokenID();
         uint256 prev;
 
         for (uint256 i = 1; i <= maxTokenId; i++) {
-            (uint256 index, , , ) = ocmeme.getMemeData(i);
+            (uint256 index, , , ) = larena.getLarenaData(i);
             if (1 == index) {} else {
                 assertTrue(index - prev == 1);
             }

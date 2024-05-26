@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 /*
-     ░░░░░░   ░░░░░░ ░░░    ░░░ ░░░░░░░ ░░░    ░░░ ░░░░░░░
-    ▒▒    ▒▒ ▒▒      ▒▒▒▒  ▒▒▒▒ ▒▒      ▒▒▒▒  ▒▒▒▒ ▒▒     
-    ▒▒    ▒▒ ▒▒      ▒▒ ▒▒▒▒ ▒▒ ▒▒▒▒▒   ▒▒ ▒▒▒▒ ▒▒ ▒▒▒▒▒  
-    ▓▓    ▓▓ ▓▓      ▓▓  ▓▓  ▓▓ ▓▓      ▓▓  ▓▓  ▓▓ ▓▓     
-     ██████   ██████ ██      ██ ███████ ██      ██ ███████
+
+|¯¯|  /’\  |¯¯|\¯¯\|¯¯|\¯¯\|¯¯\|¯¯|  /’\    
+|^^| /_o_\ |  |/  ||   >¯_||   \  | /_o_\  
+|__|/_____\|__|\__\|__|/__/|__||__|/_____\
+
 */
 
 import {Owned} from "solmate/auth/Owned.sol";
@@ -19,16 +19,18 @@ import {LibString} from "./libraries/LibString.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {toDaysWadUnsafe, toWadUnsafe} from "./libraries/SignedWadMath.sol";
 
-import {OcmemeERC721} from "./utils/token/OcmemeERC721.sol";
+import {UnrevealedURI} from "./interfaces/UnrevealedURI.sol";
+import {DelegatePage} from "./interfaces/DelegatePage.sol";
+import {LarenaERC721} from "./utils/token/LarenaERC721.sol";
 import {Pages} from "./Pages.sol";
 import {Coin} from "./Coin.sol";
 
-/// @title OCmeme
+/// @title larena
 /// On-chain user-generated autonomous art competition.
 /// @author smarsx.eth
 /// Inspired by Art Gobblers, Basepaint, and inscriptions.
 /// @custom:experimental This is an experimental contract. (NO PROFESSIONAL AUDIT, USE AT YOUR OWN RISK)
-contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
+contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     using LibString for uint256;
 
     /// @dev The day the switch from a logistic to translated linear VRGDA is targeted to occur.
@@ -37,11 +39,6 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// @notice The minimum amount of pages that must be sold for the VRGDA issuance
     /// schedule to switch from logistic to linear formula.
     int256 internal constant SOLD_BY_SWITCH_WAD = 9930e18;
-
-    /// @notice Initial number allowed to be minted to vault per epoch.
-    /// @dev decreases over time eventually to 1.
-    /// @dev at switch to linear, vault supply will be ~5% of total supply.
-    uint256 public constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
 
     /// @notice Max submissions per epoch.
     uint256 public constant MAX_SUBMISSIONS = 100;
@@ -61,6 +58,12 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// @notice Voting power decays exponentially in the 12 hours preceeding end of epoch.
     uint256 public constant DECAY_ZONE = 30 days - 11 hours;
 
+    /// @notice number allowed to be minted to vault per epoch.
+    /// @dev decreases each epoch until switchover
+    uint256 public constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
+    uint256 public constant VAULT_SUPPLY_SWITCHOVER = 28;
+    uint256 public constant VAULT_SUPPLY_PER_EPOCH = 2;
+
     /// @notice Payout details.
     uint256 public constant GOLD_SHARE = 85000;
     uint256 public constant SILVER_SHARE = 8000;
@@ -77,15 +80,18 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// @notice The address of Pages contract.
     Pages public immutable $pages;
 
+    /// @notice The address of Unrevealed contract.
+    UnrevealedURI public $unrevealed;
+
     /// @notice The last minted token id.
-    /// @dev packed into slot 6 following owner
+    /// @dev packed into slot 7 following $unrevealed
     uint64 public $prevTokenID;
 
     /// @notice Initial epoch timestamp.
-    /// @dev packed into slot 6 following $prevTokenID
+    /// @dev packed into slot slot 7 following $unrevealed
     uint32 public $start;
 
-    /// @notice The url to access ocmeme uri.
+    /// @notice The url to access larena uri.
     /// @dev BaseURI takes precedence over on-chain render in tokenURI.
     /// @dev Can always call _tokenURI to use on-chain render.
     string public $baseURI;
@@ -100,7 +106,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         BRONZE,
         VAULT,
         // vault_mint doesn't conceptually belong here
-        // not a claim like the other fields.
+        // not a claim like the other fields but functions identically.
         VAULT_MINT
     }
 
@@ -129,6 +135,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     //////////////////////////////////////////////////////////////*/
 
     event ChangedBaseURI(string baseURI);
+    event ChangedUnrevealedUri(address newPointer);
     event Claimed(uint256 indexed pageID, uint256 amt);
     event CrownedWinners(
         uint256 indexed epochID,
@@ -143,7 +150,15 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         address indexed owner,
         uint256 indexed epochID,
         uint256 pageID,
-        uint256 royalty
+        uint256 royalty,
+        address pointer
+    );
+    event SubmittedDelegate(
+        address indexed owner,
+        uint256 indexed epochID,
+        uint256 pageID,
+        uint256 royalty,
+        address pointer
     );
     event Voted(uint256 indexed pageID, uint256 amt, address from);
 
@@ -170,9 +185,10 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     constructor(
         Coin _coin,
         Pages _pages,
+        UnrevealedURI _unrevealed,
         address _vault
     )
-        OcmemeERC721("OCMEME", "OCMEME")
+        LarenaERC721("larena", "LARENA")
         Owned(msg.sender)
         LogisticToLinearVRGDA(
             .0125e18, // Target price.
@@ -186,6 +202,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     {
         $coin = _coin;
         $pages = _pages;
+        $unrevealed = _unrevealed;
         $vault = _vault;
     }
 
@@ -193,7 +210,8 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
                             USER ACTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Mint ocmeme
+    /// @notice Mint larena
+    /// @dev refunds any msg.value > price
     function mint() public payable {
         (uint256 epochID, ) = _currentEpoch();
 
@@ -240,17 +258,35 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
             NFTMeta.constructTokenURI(
                 NFTMeta.MetaParams({
                     typeUri: _typeUri,
-                    name: string.concat("OCmeme #", epochID.toString()),
+                    name: string.concat("larena #", epochID.toString()),
                     description: _description,
                     duri: _duri
                 })
             )
         );
 
-        $pages.setMetadata(_pageID, _royalty, pointer);
+        $pages.setMetadata(_pageID, _royalty, pointer, false);
+        $submissions[epochID].push(_pageID);
+        // pack epoch_end into votes to save an sload in vote().
+        $votes[_pageID] = Vote(uint40(estart + EPOCH_LENGTH), 0);
+        emit Submitted(msg.sender, epochID, _pageID, _royalty, pointer);
+    }
+
+    /// @notice Submit delegate page to an epoch.
+    /// @param _pageID Page token to use.
+    /// @param _royalty Royalty in basis points.
+    /// @param _pointer Delegate page contract. Must implement DelegatePage interface.
+    function submitDelegate(uint256 _pageID, uint256 _royalty, address _pointer) external {
+        (uint256 epochID, uint256 estart) = _currentEpoch();
+
+        if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
+        if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
+        if (block.timestamp > estart + SUBMISSION_DEADLINE) revert InvalidTime();
+
+        $pages.setMetadata(_pageID, _royalty, _pointer, true);
         $submissions[epochID].push(_pageID);
         $votes[_pageID] = Vote(uint40(estart + EPOCH_LENGTH), 0);
-        emit Submitted(msg.sender, epochID, _pageID, _royalty);
+        emit SubmittedDelegate(msg.sender, epochID, _pageID, _royalty, _pointer);
     }
 
     /// @notice Vote for a page.
@@ -301,61 +337,28 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         emit Voted(_pageID, _coin, msg.sender);
     }
 
-    /// @notice Claim gold winnings.
-    /// @dev must be owner of goldPageID.
-    function claimGold(uint256 _epochID) external {
+    /// @notice Claim winnings.
+    /// @param _epochID epoch being claimed.
+    /// @param _claimType type of claim (gold, silver, bronze).
+    /// @dev caller must be owner of page being claimed.
+    function claim(uint256 _epochID, ClaimType _claimType) external {
         Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.goldPageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.GOLD)) != 0) revert DuplicateClaim();
+        uint256 pageId = getClaimPageId(_claimType, e.goldPageID, e.silverPageID, e.bronzePageID);
 
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.GOLD)));
+        if ($pages.ownerOf(pageId) != msg.sender) revert NotOwner();
+        if (e.claims & (1 << uint8(_claimType)) != 0) revert DuplicateClaim();
 
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, GOLD_SHARE), PAYOUT_DENOMINATOR)
-        }
+        // claim
+        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(_claimType)));
 
-        emit Claimed(e.goldPageID, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
-    }
+        uint256 claimAmount = unsafeDivMul(
+            e.proceeds,
+            getClaimShare(_claimType),
+            PAYOUT_DENOMINATOR
+        );
 
-    /// @notice Claim silver winnings.
-    /// @dev must be owner of silverPageID.
-    function claimSilver(uint256 _epochID) external {
-        Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.silverPageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.SILVER)) != 0) revert DuplicateClaim();
-
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.SILVER)));
-
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, SILVER_SHARE), PAYOUT_DENOMINATOR)
-        }
-
-        emit Claimed(e.silverPageID, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
-    }
-
-    /// @notice Claim bronze winnings.
-    /// @dev must be owner of bronzePageID.
-    function claimBronze(uint256 _epochID) external {
-        Epoch memory e = $epochs[_epochID];
-        if ($pages.ownerOf(e.bronzePageID) != msg.sender) revert NotOwner();
-        if (e.claims & (1 << uint8(ClaimType.BRONZE)) != 0) revert DuplicateClaim();
-
-        $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.BRONZE)));
-
-        uint256 amt;
-        uint256 p = uint256(e.proceeds);
-        assembly {
-            amt := div(mul(p, BRONZE_SHARE), PAYOUT_DENOMINATOR)
-        }
-
-        emit Claimed(e.bronzePageID, amt);
-        SafeTransferLib.safeTransferETH(msg.sender, amt);
+        emit Claimed(pageId, claimAmount);
+        SafeTransferLib.safeTransferETH(msg.sender, claimAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -423,44 +426,41 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         emit CrownedWinners(epochID, goldPageID, silverPageID, bronzePageID);
     }
 
-    /// @notice Mint vaultNum to protocol vault.
+    /// @notice Mint to vault.
     function vaultMint() external {
         (uint256 epochID, ) = _currentEpoch();
-        uint256 tokenID = $prevTokenID;
         Epoch memory e = $epochs[epochID];
 
         if (e.claims & (1 << uint8(ClaimType.VAULT_MINT)) != 0) revert DuplicateClaim();
 
-        uint256 vaultNum = epochID > 36 ? 1 : epochID > 28
-            ? 2
-            : INITIAL_VAULT_SUPPLY_PER_EPOCH - epochID;
-        if (vaultNum == 0) revert();
-
+        // claim
         $epochs[epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT_MINT)));
-        if ($epochs[epochID].firstTokenID == 0) {
-            $epochs[epochID].firstTokenID = uint16(tokenID + 1);
+
+        uint256 prevID = $prevTokenID;
+        uint256 nextID = prevID + 1;
+        uint256 vaultNum = getVaultSupply(epochID);
+        unchecked {
+            if (e.firstTokenID == 0) {
+                $epochs[epochID].firstTokenID = uint16(nextID);
+            }
+            // use ++nextID for 1-based index.
+            uint256 firstIndex = ++nextID - $epochs[epochID].firstTokenID;
+            $prevTokenID = uint56(_batchMint($vault, prevID, epochID, firstIndex, vaultNum));
         }
-        $prevTokenID = uint56(
-            _batchMint(
-                address($vault),
-                tokenID,
-                epochID,
-                (2 + tokenID) - $epochs[epochID].firstTokenID,
-                vaultNum
-            )
-        );
     }
 
     /// @notice Claim vault share.
-    function claimVault(uint256 _epochID) external {
-        if (_epochID == 0) revert();
+    function vaultClaim(uint256 _epochID) external {
         Epoch memory e = $epochs[_epochID];
+
+        if (_epochID == 0) revert InvalidTime();
         if (e.claims & (1 << uint8(ClaimType.VAULT)) != 0) revert DuplicateClaim();
 
+        // claim
         $epochs[_epochID].claims = uint8(e.claims | (1 << uint8(ClaimType.VAULT)));
 
         // vault_share = proceeds - sum(gold, silver, bronze)
-        // this cleans up rounding crumbs
+        // cleans up rounding crumbs
 
         uint256 amt;
         uint256 p = uint256(e.proceeds);
@@ -500,7 +500,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// burning the corresponding ERC20 balance.
     /// @param _coinAmount The amount of coin to add.
     function addCoin(uint256 _coinAmount) external {
-        // Burn coin being added to ocmeme
+        // Burn coin being added to larena
         $coin.burnCoin(msg.sender, _coinAmount);
 
         // Increase msg.sender's virtual coin balance
@@ -574,26 +574,22 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
     /// @notice Render tokenURI.
     function _tokenURI(uint256 _id) public view returns (string memory) {
-        MemeData memory md = getMemeData[_id];
+        LarenaData memory md = getLarenaData[_id];
         Epoch memory e = $epochs[md.epochID];
         if (md.epochID == 0) revert InvalidID();
 
         if (e.goldPageID == 0) {
             // unrevealed
-            return
-                NFTMeta.constructBaseTokenURI(
-                    md.index,
-                    string.concat("OCmeme #", uint256(md.epochID).toString())
-                );
+            return $unrevealed.tokenUri(md.epochID, md.index);
         } else {
             // revealed
-            Pages.Metadata memory m = $pages.GetMetadata(e.goldPageID);
-            return NFTMeta.renderWithTraits(md.emissionMultiple, SSTORE2.read(m.pointer));
+            return $pages.renderWithTraits(_id, md.epochID, md.emissionMultiple, md.index);
         }
     }
 
+    /// @notice Transfer
     function transferFrom(address from, address to, uint256 id) public override {
-        require(from == getMemeData[id].owner, "WRONG_FROM");
+        require(from == getLarenaData[id].owner, "WRONG_FROM");
 
         require(to != address(0), "INVALID_RECIPIENT");
 
@@ -606,24 +602,24 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
         delete getApproved[id];
 
-        getMemeData[id].owner = to;
+        getLarenaData[id].owner = to;
 
         unchecked {
-            uint32 emissionMultiple = getMemeData[id].emissionMultiple; // Caching saves gas
+            uint32 emissionMultiple = getLarenaData[id].emissionMultiple; // Caching saves gas
 
             // We update their last balance before updating their emission multiple to avoid
             // penalizing them by retroactively applying their new (lower) emission multiple
             getUserData[from].lastBalance = uint128(coinBalance(from));
             getUserData[from].lastTimestamp = uint64(block.timestamp);
             getUserData[from].emissionMultiple -= emissionMultiple;
-            getUserData[from].memesOwned -= 1;
+            getUserData[from].larenasOwned -= 1;
 
             // We update their last balance before updating their emission multiple to avoid
             // overpaying them by retroactively applying their new (higher) emission multiple
             getUserData[to].lastBalance = uint128(coinBalance(to));
             getUserData[to].lastTimestamp = uint64(block.timestamp);
             getUserData[to].emissionMultiple += emissionMultiple;
-            getUserData[to].memesOwned += 1;
+            getUserData[to].larenasOwned += 1;
         }
 
         emit Transfer(from, to, id);
@@ -643,7 +639,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         uint256 _tokenId,
         uint256 _salePrice
     ) external view returns (address, uint256) {
-        MemeData memory md = getMemeData[_tokenId];
+        LarenaData memory md = getLarenaData[_tokenId];
         uint256 winningPageId = uint256($epochs[md.epochID].goldPageID);
 
         address owner = $pages.ownerOf(winningPageId);
@@ -654,7 +650,7 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(OcmemeERC721) returns (bool) {
+    ) public view virtual override(LarenaERC721) returns (bool) {
         return interfaceId == 0x2a55205a || super.supportsInterface(interfaceId);
     }
 
@@ -674,6 +670,12 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     function updateBaseURI(string calldata _baseURI) external onlyOwner {
         $baseURI = _baseURI;
         emit ChangedBaseURI(_baseURI);
+    }
+
+    /// @notice Update base URI string.
+    function updateUnrevealedURI(address _pointer) external onlyOwner {
+        $unrevealed = UnrevealedURI(_pointer);
+        emit ChangedUnrevealedUri(_pointer);
     }
 
     /// @notice Sweep unclaimed funds to vault.
@@ -706,9 +708,9 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
             }
             if iszero(and(c, shl(and(3, 0xff), 1))) {
                 // prettier-ignore
-                amt := 
-                    add(amt, 
-                        sub(p, 
+                amt :=
+                    add(amt,
+                        sub(p,
                             add(add(
                                 div(mul(p, GOLD_SHARE), PAYOUT_DENOMINATOR),
                                 div(mul(p, SILVER_SHARE), PAYOUT_DENOMINATOR)),
@@ -738,11 +740,18 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         return _epochStart(_id);
     }
 
+    /// @notice Get active VRGDA price.
+    /// @return Current price in wei.
+    function getPrice() public view returns (uint256) {
+        if ($start == 0) revert InvalidTime();
+        return _getPrice($start, $prevTokenID);
+    }
+
     /// @notice Get active epochID and its respective start time.
     function _currentEpoch() internal view returns (uint256 _epochID, uint256 _start) {
         assembly {
-            // load slot6, extract $start
-            _start := and(shr(224, sload(6)), 0xffffffff)
+            // load slot7, extract $start
+            _start := and(shr(224, sload(7)), 0xffffffff)
             if iszero(_start) {
                 mstore(0x00, 0x6f7eac26) // InvalidTime
                 revert(0x1c, 0x04)
@@ -756,15 +765,8 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
     /// @dev if id = 0 this will overflow
     function _epochStart(uint256 _id) internal view returns (uint256 _start) {
         assembly {
-            _start := add(mul(sub(_id, 1), EPOCH_LENGTH), and(shr(224, sload(6)), 0xffffffff))
+            _start := add(mul(sub(_id, 1), EPOCH_LENGTH), and(shr(224, sload(7)), 0xffffffff))
         }
-    }
-
-    /// @notice Get active VRGDA price.
-    /// @return Current price in wei.
-    function getPrice() public view returns (uint256) {
-        if ($start == 0) revert InvalidTime();
-        return _getPrice($start, $prevTokenID);
     }
 
     /// @notice Get VRGDA price given parameters.
@@ -776,8 +778,58 @@ contract Ocmeme is OcmemeERC721, LogisticToLinearVRGDA, Owned {
         }
     }
 
-    // convenience
+    /// @notice unsafebutsafedivmul
+    /// @dev _x is constrained by price of ether, _y & _d are defined constants
+    function unsafeDivMul(
+        uint256 _x,
+        uint256 _y,
+        uint256 _d
+    ) internal pure returns (uint256 _result) {
+        assembly {
+            _result := div(mul(_x, _y), _d)
+        }
+    }
+
+    /// @notice Get vault supply for given epoch.
+    function getVaultSupply(uint256 _epochID) internal pure returns (uint256) {
+        unchecked {
+            return
+                _epochID > VAULT_SUPPLY_SWITCHOVER
+                    ? VAULT_SUPPLY_PER_EPOCH
+                    : INITIAL_VAULT_SUPPLY_PER_EPOCH - _epochID;
+        }
+    }
+
+    /// @notice Get page ids submitted to an epoch.
     function getSubmissions(uint256 _epochID) public view returns (uint256[] memory) {
         return $submissions[_epochID];
+    }
+
+    // helpers
+    function getClaimShare(ClaimType _ct) internal pure returns (uint256) {
+        if (_ct == ClaimType.GOLD) {
+            return GOLD_SHARE;
+        } else if (_ct == ClaimType.SILVER) {
+            return SILVER_SHARE;
+        } else if (_ct == ClaimType.BRONZE) {
+            return BRONZE_SHARE;
+        }
+        revert("Invalid Claim Type");
+    }
+
+    function getClaimPageId(
+        ClaimType _ct,
+        uint256 goldID,
+        uint256 silverID,
+        uint256 bronzeID
+    ) internal pure returns (uint256) {
+        if (_ct == ClaimType.GOLD) {
+            return goldID;
+        } else if (_ct == ClaimType.SILVER) {
+            return silverID;
+        } else if (_ct == ClaimType.BRONZE) {
+            return bronzeID;
+        }
+        revert("Invalid Claim Type");
     }
 }

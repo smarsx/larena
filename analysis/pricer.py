@@ -2,7 +2,7 @@ import math
 
 
 class Pricer:
-    def compute_ocmeme_price(
+    def compute_larena_price(
         self,
         time_since_start,
         num_sold,

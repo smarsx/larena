@@ -4,15 +4,15 @@ import argparse
 
 
 def main(args):
-    if args.type == "ocmeme":
-        calculate_ocmeme_price(args)
+    if args.type == "larena":
+        calculate_larena_price(args)
     elif args.type == "pages":
         calculate_pages_price(args)
 
 
-def calculate_ocmeme_price(args):
+def calculate_larena_price(args):
     pricer = Pricer()
-    price = pricer.compute_ocmeme_price(
+    price = pricer.compute_larena_price(
         args.time_since_start / (60 * 60 * 24),  ## convert to seconds
         args.num_sold,
         args.initial_price / (10**18),  ## scale decimals
@@ -49,7 +49,7 @@ def encode_and_print(price):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("type", choices=["ocmeme", "pages"])
+    parser.add_argument("type", choices=["larena", "pages"])
     parser.add_argument("--time_since_start", type=int)
     parser.add_argument("--num_sold", type=int)
     parser.add_argument("--initial_price", type=int)

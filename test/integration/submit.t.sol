@@ -4,50 +4,53 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {Coin} from "../../src/Coin.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
+import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 
 contract SubmitIntegrationTest is Test {
-    Ocmeme ocmeme;
+    Larena larena;
     Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
+    Unrevealed internal unrevealed;
     Utilities internal utils;
     address actor;
 
     function setUp() public {
         utils = new Utilities();
-        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
-        address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
-        address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 2, vm);
+        address pagesAddress = utils.predictContractAddress(address(this), 3, vm);
+        address larenaAddress = utils.predictContractAddress(address(this), 4, vm);
         reserve = new Reserve(
-            Ocmeme(ocmemeAddress),
+            Larena(larenaAddress),
             Pages(pagesAddress),
             Coin(coinAddress),
             address(this)
         );
-        coin = new Coin(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
+        unrevealed = new Unrevealed();
+        coin = new Coin(larenaAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
+        larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
         actor = utils.createUsers(1, vm)[0];
 
-        vm.prank(ocmeme.owner());
-        ocmeme.setStart();
+        vm.prank(larena.owner());
+        larena.setStart();
     }
 
     function testMakeSubmission() public {
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.coinBalance(actor);
+        uint256 bal = larena.coinBalance(actor);
         if (bal < price) {
-            vm.prank(address(ocmeme));
+            vm.prank(address(larena));
             coin.mintCoin(actor, price);
         }
         vm.startPrank(actor);
         uint256 pageID = pages.mintFromCoin(price, false);
-        ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+        larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         vm.stopPrank();
     }
 
@@ -56,22 +59,22 @@ contract SubmitIntegrationTest is Test {
         vm.warp(_warp);
 
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.coinBalance(actor);
+        uint256 bal = larena.coinBalance(actor);
         if (bal < price) {
-            vm.prank(address(ocmeme));
+            vm.prank(address(larena));
             coin.mintCoin(actor, price);
         }
         vm.startPrank(actor);
         uint256 pageID = pages.mintFromCoin(price, false);
 
-        (uint256 epochID, ) = ocmeme.currentEpoch();
-        uint256 start = ocmeme.epochStart(epochID);
+        (uint256 epochID, ) = larena.currentEpoch();
+        uint256 start = larena.epochStart(epochID);
 
-        if (block.timestamp - start > ocmeme.SUBMISSION_DEADLINE()) {
-            vm.expectRevert(Ocmeme.InvalidTime.selector);
-            ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+        if (block.timestamp - start > larena.SUBMISSION_DEADLINE()) {
+            vm.expectRevert(Larena.InvalidTime.selector);
+            larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         } else {
-            ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+            larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         }
         vm.stopPrank();
     }
@@ -79,15 +82,15 @@ contract SubmitIntegrationTest is Test {
     function testDuplicate() public {
         uint256 price = pages.pagePrice();
 
-        vm.prank(address(ocmeme));
+        vm.prank(address(larena));
         coin.mintCoin(actor, price);
 
         vm.startPrank(address(actor));
         uint256 pageID = pages.mintFromCoin(price, false);
-        ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+        larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
 
         vm.expectRevert(Pages.Used.selector);
-        ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+        larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         vm.stopPrank();
     }
 }

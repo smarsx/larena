@@ -6,76 +6,80 @@ import "forge-std/Script.sol";
 import {LibRLP} from "../../test/utils/LibRLP.sol";
 
 import {Reserve} from "../../src/utils/Reserve.sol";
+import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 
 import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 
 abstract contract DeployBase is Script {
     address private immutable coldWallet;
     uint256 private immutable pageStart;
-    uint256 private immutable ocmemeStart;
+    uint256 private immutable larenaStart;
 
     // deploy addresses
     Coin public coin;
     Pages public pages;
-    Ocmeme public ocmeme;
+    Larena public larena;
     Reserve public reserve;
+    Unrevealed public unrevealed;
 
     constructor(address _coldWallet, uint256 _pageStart) {
         coldWallet = _coldWallet;
         pageStart = _pageStart;
     }
 
-    // cold wallet is owner of reserve & ocmeme contracts
+    // cold wallet is owner of reserve & larena contracts
     function run() external {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        uint256 ocmemeKey = vm.envUint("OCMEME_PRIVATE_KEY");
+        uint256 larenaKey = vm.envUint("LARENA_PRIVATE_KEY");
         uint256 pagesKey = vm.envUint("PAGES_PRIVATE_KEY");
         uint256 coinKey = vm.envUint("COIN_PRIVATE_KEY");
 
-        address ocmemeDeployerAddress = vm.addr(ocmemeKey);
+        address larenaDeployerAddress = vm.addr(larenaKey);
         address pagesDeployerAddress = vm.addr(pagesKey);
         address coinDeployerAddress = vm.addr(coinKey);
 
         // precompute contract addresses, based on contract deploy nonces
-        address ocmemeAddress = LibRLP.computeAddress(ocmemeDeployerAddress, 0);
-        address pageAddress = LibRLP.computeAddress(pagesDeployerAddress, 0);
-        address coinAddress = LibRLP.computeAddress(coinDeployerAddress, 0);
+        address larenaAddress = LibRLP.computeAddress(larenaDeployerAddress, 6);
+        address pageAddress = LibRLP.computeAddress(pagesDeployerAddress, 3);
+        address coinAddress = LibRLP.computeAddress(coinDeployerAddress, 3);
 
         vm.startBroadcast(deployerKey);
 
         // deploy reserve vault, owned by cold wallet
         reserve = new Reserve(
-            Ocmeme(ocmemeAddress),
+            Larena(larenaAddress),
             Pages(pageAddress),
             Coin(coinAddress),
             coldWallet
         );
 
+        unrevealed = new Unrevealed();
+
         // fund deployer addresses
-        payable(ocmemeDeployerAddress).transfer(0.2 ether);
-        payable(pagesDeployerAddress).transfer(0.1 ether);
-        payable(coinDeployerAddress).transfer(0.1 ether);
+        // payable(larenaDeployerAddress).transfer(0.2 ether);
+        // payable(pagesDeployerAddress).transfer(0.1 ether);
+        // payable(coinDeployerAddress).transfer(0.1 ether);
 
         vm.stopBroadcast();
 
         // deploy coin
         vm.startBroadcast(coinKey);
-        coin = new Coin(ocmemeAddress, pageAddress);
+        coin = new Coin(larenaAddress, pageAddress);
         if (address(coin) != coinAddress) revert("err computed address");
         vm.stopBroadcast();
 
-        // deploy ocmeme
-        vm.startBroadcast(ocmemeKey);
-        ocmeme = new Ocmeme(Coin(coinAddress), Pages(pageAddress), address(reserve));
-        if (address(ocmeme) != ocmemeAddress) revert("err computed address");
-        ocmeme.transferOwnership(coldWallet);
+        // deploy larena
+        vm.startBroadcast(larenaKey);
+        larena = new Larena(Coin(coinAddress), Pages(pageAddress), unrevealed, address(reserve));
+        if (address(larena) != larenaAddress) revert("err computed address");
+        larena.transferOwnership(coldWallet);
         vm.stopBroadcast();
 
         // deploy pages
         vm.startBroadcast(pagesKey);
-        pages = new Pages(pageStart, Coin(coinAddress), address(reserve), Ocmeme(ocmemeAddress));
+        pages = new Pages(pageStart, Coin(coinAddress), address(reserve), Larena(larenaAddress));
         if (address(pages) != pageAddress) revert("err computed address");
         vm.stopBroadcast();
     }

@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import {ERC20} from "solady/tokens/ERC20.sol";
 
-/// @notice ERC20 continiously lazy-emitted by Ocmeme. Used to mint/vote for Pages.
+/// @notice ERC20 continiously lazy-emitted by Larena. Used to vote/mint Pages.
 /// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Goo.sol)
 contract Coin is ERC20 {
     error Unauthorized();
-    address public immutable ocmeme;
+    address public immutable larena;
     address public immutable pages;
 
-    constructor(address _ocmeme, address _pages) {
-        ocmeme = _ocmeme;
+    constructor(address _larena, address _pages) {
+        larena = _larena;
         pages = _pages;
     }
 
@@ -32,17 +32,17 @@ contract Coin is ERC20 {
         _;
     }
 
-    /// @notice Mint any amount of coin to a user. Can only be called by Ocmeme.
+    /// @notice Mint any amount of coin to a user. Can only be called by larena.
     /// @param to The address of the user to mint coin to.
     /// @param amount The amount of coin to mint.
-    function mintCoin(address to, uint256 amount) external only(ocmeme) {
+    function mintCoin(address to, uint256 amount) external only(larena) {
         _mint(to, amount);
     }
 
-    /// @notice Burn any amount of coin from a user. Can only be called by Ocmeme.
+    /// @notice Burn any amount of coin from a user. Can only be called by larena.
     /// @param from The address of the user to burn coin from.
     /// @param amount The amount of coin to burn.
-    function burnCoin(address from, uint256 amount) external only(ocmeme) {
+    function burnCoin(address from, uint256 amount) external only(larena) {
         _burn(from, amount);
     }
 

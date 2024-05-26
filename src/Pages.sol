@@ -6,9 +6,10 @@ import {LinearVRGDA} from "VRGDAs/LinearVRGDA.sol";
 import {SSTORE2} from "solady/utils/SSTORE2.sol";
 
 import {Coin} from "./Coin.sol";
-import {Ocmeme} from "./Ocmeme.sol";
+import {Larena} from "./Larena.sol";
 import {NFTMeta} from "./libraries/NFTMeta.sol";
 import {PagesERC721} from "./utils/token/PagesERC721.sol";
+import {DelegatePage} from "./interfaces/DelegatePage.sol";
 
 /// @title Pages NFT
 /// @author modified from Art-Gobblers (https://github.com/artgobblers/art-gobblers/blob/master/src/Pages.sol)
@@ -70,14 +71,14 @@ contract Pages is PagesERC721, LinearVRGDA {
     /// @param _mintStart Timestamp for the start of the VRGDA mint.
     /// @param _coin Address of the Coin contract.
     /// @param _vault Address of the vault.
-    /// @param _ocmeme Address of the Ocmeme contract.
+    /// @param _larena Address of the larena contract.
     constructor(
         uint256 _mintStart,
         Coin _coin,
         address _vault,
-        Ocmeme _ocmeme
+        Larena _larena
     )
-        PagesERC721(_ocmeme, "Pages", "PAGE")
+        PagesERC721(_larena, "Pages", "PAGE")
         LinearVRGDA(
             0.0042069e18, // Target price.
             0.31e18, // Price decay percent.
@@ -102,28 +103,35 @@ contract Pages is PagesERC721, LinearVRGDA {
 
     /// @notice Page metadata.
     struct Metadata {
-        uint96 royalty;
+        bool delegate;
+        uint88 royalty;
         address pointer;
     }
 
     /// @notice Map pageIds to metadata
     mapping(uint256 => Metadata) public pageMetadata;
 
+    /// @notice Get page metadata
     function GetMetadata(uint256 _pageID) public view returns (Metadata memory _metadata) {
         _metadata = pageMetadata[_pageID];
     }
 
     /// @notice Set royalty and SSTORE2 pointer for page.
     /// @dev Reverts if pointer is already set.
-    /// @dev Called in Ocmeme.Submit()
+    /// @dev Called in larena.Submit()
     /// @dev Doesn't overwrite votes, technically you can pre-vote for x pageId.
     function setMetadata(
         uint256 _pageID,
         uint256 _royalty,
-        address _pointer
-    ) external only(address(ocmeme)) {
+        address _pointer,
+        bool _delegate
+    ) external only(address(larena)) {
         if (pageMetadata[_pageID].pointer != address(0)) revert Used();
-        pageMetadata[_pageID] = Metadata({pointer: _pointer, royalty: uint96(_royalty)});
+        pageMetadata[_pageID] = Metadata({
+            pointer: _pointer,
+            royalty: uint88(_royalty),
+            delegate: _delegate
+        });
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -148,7 +156,7 @@ contract Pages is PagesERC721, LinearVRGDA {
         // Decrement the user's coin balance by the current
         // price, either from virtual balance or ERC20 balance.
         useVirtualBalance
-            ? ocmeme.burnCoinForPages(msg.sender, currentPrice)
+            ? larena.burnCoinForPages(msg.sender, currentPrice)
             : coin.burnForPages(msg.sender, currentPrice);
 
         unchecked {
@@ -201,6 +209,19 @@ contract Pages is PagesERC721, LinearVRGDA {
         }
     }
 
+    function renderWithTraits(
+        uint256 pageID,
+        uint256 epochID,
+        uint256 emissionMultiple,
+        uint256 index
+    ) external view returns (string memory) {
+        Metadata memory metadata = pageMetadata[pageID];
+        return
+            metadata.delegate
+                ? DelegatePage(metadata.pointer).tokenUri(epochID, emissionMultiple, index)
+                : NFTMeta.renderWithTraits(emissionMultiple, SSTORE2.read(metadata.pointer));
+    }
+
     /*//////////////////////////////////////////////////////////////
                              TOKEN URI LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -210,7 +231,9 @@ contract Pages is PagesERC721, LinearVRGDA {
     function tokenURI(uint256 pageID) public view virtual override returns (string memory) {
         if (pageID == 0 || pageID > currentId) revert("NOT_MINTED");
         if (pageMetadata[pageID].pointer == address(0)) revert("NOT_SET");
-
-        return NFTMeta.render(SSTORE2.read(pageMetadata[pageID].pointer));
+        return
+            pageMetadata[pageID].delegate
+                ? DelegatePage(pageMetadata[pageID].pointer).tokenUri()
+                : NFTMeta.render(SSTORE2.read(pageMetadata[pageID].pointer));
     }
 }

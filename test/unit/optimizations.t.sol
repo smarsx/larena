@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {GasHelpers} from "../utils/GasHelper.t.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 
 contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
     uint256 public constant EPOCH_LENGTH = 30 days;
@@ -17,28 +17,31 @@ contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
     uint8 $allowRecovery = 1;
 
     function testMultiple(uint256 id) public pure {
-        // branchless
-        uint256 multiple = 7;
+        // set emission multiple
+        uint256 multiple = 9; // beyond 10000
 
+        // The branchless expression below is equivalent to:
+        //      if (id <= 3054) multiple = 5;
+        // else if (id <= 5672) multiple = 6;
+        // else if (id <= 7963) multiple = 7;
+        // else if (id <= 10000) multiple = 8;
         assembly {
             // prettier-ignore
-            multiple := sub(sub(sub(sub(sub(
-                multiple, 
-                lt(id, 20001)),
-                lt(id, 17702)),
-                lt(id, 14943)),
-                lt(id, 11495)),
-                lt(id, 6897)
+            multiple := sub(sub(sub(sub(
+                multiple,
+                lt(id, 10001)),
+                lt(id, 7964)),
+                lt(id, 5673)),
+                lt(id, 3055)
             )
         }
 
-        uint256 multipleBranched = 7;
+        uint256 multipleBranched = 9;
 
-        if (id <= 6896) multipleBranched = 2;
-        else if (id <= 11494) multipleBranched = 3;
-        else if (id <= 14942) multipleBranched = 4;
-        else if (id <= 17701) multipleBranched = 5;
-        else if (id <= 20000) multipleBranched = 6;
+        if (id <= 3054) multipleBranched = 5;
+        else if (id <= 5672) multipleBranched = 6;
+        else if (id <= 7963) multipleBranched = 7;
+        else if (id <= 10000) multipleBranched = 8;
 
         assertEq(multiple, multipleBranched);
     }
@@ -80,12 +83,12 @@ contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
         uint8 bb;
         uint8 cc;
         c = uint8(z & (1 << uint8(idx)));
-        b = uint8(z & (1 << uint8(Ocmeme.ClaimType(idx))));
+        b = uint8(z & (1 << uint8(Larena.ClaimType(idx))));
         assembly {
             a := and(z, shl(and(idx, 0xff), 1))
         }
         cc = uint8(z & (1 << uint8(idx2)));
-        bb = uint8(z & (1 << uint8(Ocmeme.ClaimType(idx2))));
+        bb = uint8(z & (1 << uint8(Larena.ClaimType(idx2))));
         assembly {
             aa := and(z, shl(and(idx2, 0xff), 1))
         }
@@ -96,16 +99,16 @@ contract OptimizationsTest is Test, GasHelpers, MemoryPlus {
 
         // write
         if (a == 0) {
-            z = uint8(z | (1 << uint8(Ocmeme.ClaimType(idx))));
+            z = uint8(z | (1 << uint8(Larena.ClaimType(idx))));
 
             c = uint8(z & (1 << uint8(idx)));
-            b = uint8(z & (1 << uint8(Ocmeme.ClaimType(idx))));
+            b = uint8(z & (1 << uint8(Larena.ClaimType(idx))));
             assembly {
                 a := and(z, shl(and(idx, 0xff), 1))
             }
 
             cc = uint8(z & (1 << uint8(idx2)));
-            bb = uint8(z & (1 << uint8(Ocmeme.ClaimType(idx2))));
+            bb = uint8(z & (1 << uint8(Larena.ClaimType(idx2))));
             assembly {
                 aa := and(z, shl(and(idx2, 0xff), 1))
             }

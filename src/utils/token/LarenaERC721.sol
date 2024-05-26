@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import {ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 
-/// @notice ERC721 implementation optimized for ocmeme by packing balanceOf/ownerOf with user/attribute data.
+/// @notice ERC721 implementation optimized for larena by packing balanceOf/ownerOf with user/attribute data.
 /// @author smarsx.eth
 /// @author Modified from Art-Gobblers. (https://github.com/artgobblers/art-gobblers/blob/master/src/utils/token/GobblersERC721.sol)
 /// @author Modified from Solmate. (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC721.sol)
-abstract contract OcmemeERC721 {
+abstract contract LarenaERC721 {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -29,26 +29,26 @@ abstract contract OcmemeERC721 {
     function tokenURI(uint256 id) external view virtual returns (string memory);
 
     /*//////////////////////////////////////////////////////////////
-                            Ocmeme/ERC721 STORAGE
+                            Larena/ERC721 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Struct holding ocmeme data.
-    struct MemeData {
+    /// @notice Struct holding larena data.
+    struct LarenaData {
         // Order in respective epoch.
         uint32 index;
-        // Multiple on goo issuance.
+        // Multiple on coin issuance.
         uint32 emissionMultiple;
-        // Epoch ocmeme belongs to.
+        // Epoch larena belongs to.
         uint32 epochID;
-        // The current owner of the meme.
+        // Current owner.
         address owner;
     }
 
     /// @notice Struct holding data relevant to each user's account.
     struct UserData {
-        // The total number of ocmemes currently owned by the user.
-        uint32 memesOwned;
-        // The sum of the multiples of all ocmemes the user holds.
+        // The total number of larenas currently owned by the user.
+        uint32 larenasOwned;
+        // The sum of the multiples of all larenas the user holds.
         uint32 emissionMultiple;
         // Timestamp of the last goo balance checkpoint.
         uint64 lastTimestamp;
@@ -56,19 +56,19 @@ abstract contract OcmemeERC721 {
         uint128 lastBalance;
     }
 
-    /// @notice Maps ocmeme ids to their data.
-    mapping(uint256 => MemeData) public getMemeData;
+    /// @notice Maps larena ids to their data.
+    mapping(uint256 => LarenaData) public getLarenaData;
     /// @notice Maps user addresses to their account data.
     mapping(address => UserData) public getUserData;
 
     function ownerOf(uint256 id) external view returns (address owner) {
-        require((owner = getMemeData[id].owner) != address(0), "NOT_MINTED");
+        require((owner = getLarenaData[id].owner) != address(0), "NOT_MINTED");
     }
 
     function balanceOf(address owner) external view returns (uint256) {
         require(owner != address(0), "ZERO_ADDRESS");
 
-        return getUserData[owner].memesOwned;
+        return getUserData[owner].larenasOwned;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -93,7 +93,7 @@ abstract contract OcmemeERC721 {
     //////////////////////////////////////////////////////////////*/
 
     function approve(address spender, uint256 id) external {
-        address owner = getMemeData[id].owner;
+        address owner = getLarenaData[id].owner;
 
         require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "NOT_AUTHORIZED");
 
@@ -149,38 +149,35 @@ abstract contract OcmemeERC721 {
 
     function _mint(address to, uint256 id, uint256 epochID, uint256 index) internal {
         // Does not check if the token was already minted or the recipient is address(0)
-        // because Ocmeme.sol manages its ids in such a way that it ensures it won't
+        // because larena.sol manages its ids in such a way that it ensures it won't
         // double mint and will only mint to msg.sender who cannot be zero.
 
         // set emission multiple
-        uint256 multiple = 7; // beyond 20000
+        uint256 multiple = 9; // beyond 10000
 
         // The branchless expression below is equivalent to:
-        // if (id <= 6896) newCurrentIdMultiple = 2;
-        // else if (id <= 11494) newCurrentIdMultiple = 3;
-        // else if (id <= 14942) newCurrentIdMultiple = 4;
-        // else if (id <= 17701) newCurrentIdMultiple = 5;
-        // else if (id <= 20000) newCurrentIdMultiple = 6;
-
+        //      if (id <= 3054) multiple = 5;
+        // else if (id <= 5672) multiple = 6;
+        // else if (id <= 7963) multiple = 7;
+        // else if (id <= 10000) multiple = 8;
         assembly {
             // prettier-ignore
-            multiple := sub(sub(sub(sub(sub(
+            multiple := sub(sub(sub(sub(
                 multiple,
-                lt(id, 20001)),
-                lt(id, 17702)),
-                lt(id, 14943)),
-                lt(id, 11495)),
-                lt(id, 6897)
+                lt(id, 10001)),
+                lt(id, 7964)),
+                lt(id, 5673)),
+                lt(id, 3055)
             )
         }
 
-        getMemeData[id].owner = to;
-        getMemeData[id].index = uint32(index);
-        getMemeData[id].epochID = uint32(epochID);
-        getMemeData[id].emissionMultiple = uint32(multiple);
+        getLarenaData[id].owner = to;
+        getLarenaData[id].index = uint32(index);
+        getLarenaData[id].epochID = uint32(epochID);
+        getLarenaData[id].emissionMultiple = uint32(multiple);
 
         unchecked {
-            ++getUserData[to].memesOwned;
+            ++getUserData[to].larenasOwned;
             getUserData[to].emissionMultiple += uint32(multiple);
         }
 
@@ -195,40 +192,37 @@ abstract contract OcmemeERC721 {
         uint256 count
     ) internal returns (uint256) {
         // Does not check if the token was already minted or the recipient is address(0)
-        // because Ocmeme.sol manages its ids in such a way that it ensures it won't
+        // because larena.sol manages its ids in such a way that it ensures it won't
         // double mint and will only mint to owner who cannot be zero.
 
         // set emission multiple
-        uint256 multiple = 7; // beyond 20000
+        uint256 multiple = 9; // beyond 10000
 
         // The branchless expression below is equivalent to:
-        // if (id <= 6896) newCurrentIdMultiple = 2;
-        // else if (id <= 11494) newCurrentIdMultiple = 3;
-        // else if (id <= 14942) newCurrentIdMultiple = 4;
-        // else if (id <= 17701) newCurrentIdMultiple = 5;
-        // else if (id <= 20000) newCurrentIdMultiple = 6;
-
+        //      if (id <= 3054) multiple = 5;
+        // else if (id <= 5672) multiple = 6;
+        // else if (id <= 7963) multiple = 7;
+        // else if (id <= 10000) multiple = 8;
         assembly {
             // prettier-ignore
-            multiple := sub(sub(sub(sub(sub(
+            multiple := sub(sub(sub(sub(
                 multiple,
-                lt(id, 20001)),
-                lt(id, 17702)),
-                lt(id, 14943)),
-                lt(id, 11495)),
-                lt(id, 6897)
+                lt(id, 10001)),
+                lt(id, 7964)),
+                lt(id, 5673)),
+                lt(id, 3055)
             )
         }
 
         unchecked {
-            getUserData[to].memesOwned += uint32(count);
+            getUserData[to].larenasOwned += uint32(count);
             getUserData[to].emissionMultiple += uint32(multiple * count);
 
             for (uint256 i = 0; i < count; ++i) {
-                getMemeData[++id].owner = to;
-                getMemeData[id].index = uint32(index + i);
-                getMemeData[id].epochID = uint32(epochID);
-                getMemeData[id].emissionMultiple = uint32(multiple);
+                getLarenaData[++id].owner = to;
+                getLarenaData[id].index = uint32(index + i);
+                getLarenaData[id].epochID = uint32(epochID);
+                getLarenaData[id].emissionMultiple = uint32(multiple);
 
                 emit Transfer(address(0), to, id);
             }

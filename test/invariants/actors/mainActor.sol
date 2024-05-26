@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ocmeme} from "../../../src/Ocmeme.sol";
+import {Larena} from "../../../src/Larena.sol";
 import {Coin} from "../../../src/Coin.sol";
 import {Pages} from "../../../src/Pages.sol";
 import {Reserve} from "../../../src/utils/Reserve.sol";
@@ -13,7 +13,7 @@ import {console2 as console} from "forge-std/console2.sol";
 import {Interfaces} from "../../utils/Interfaces.sol";
 
 contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
-    Ocmeme ocmeme;
+    Larena larena;
     Pages pages;
     Coin coin;
     Reserve reserve;
@@ -71,63 +71,63 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
         _;
     }
 
-    constructor(Ocmeme _ocmeme, Pages _pages, Coin _coin, Reserve _reserve) {
-        ocmeme = _ocmeme;
+    constructor(Larena _larena, Pages _pages, Coin _coin, Reserve _reserve) {
+        larena = _larena;
         pages = _pages;
         coin = _coin;
         reserve = _reserve;
     }
 
     function mint(uint256 _seed) public virtual useUser(_seed) countCall("mint") {
-        uint256 price = ocmeme.getPrice();
+        uint256 price = larena.getPrice();
         vm.deal(currentUser, price * 2);
         vm.prank(currentUser);
         // this shouldn't effect any accounting because it will get refunded.
-        ocmeme.mint{value: price * 2}();
-        ocOwner[currentUser].push(ocmeme.$prevTokenID());
+        larena.mint{value: price * 2}();
+        ocOwner[currentUser].push(larena.$prevTokenID());
     }
 
     function vote(uint256 _seed) public virtual useUser(_seed) usePage(_seed) countCall("vote") {
         uint256 amt = uint32(_seed);
-        vm.prank(address(ocmeme));
+        vm.prank(address(larena));
         coin.mintCoin(currentUser, amt);
 
         vm.prank(currentUser);
-        ocmeme.vote(currentPageID, amt, false);
+        larena.vote(currentPageID, amt, false);
     }
 
     function submit(uint256 _seed) public virtual useUser(_seed) countCall("submit") {
         uint256 price = pages.pagePrice();
-        uint256 bal = ocmeme.coinBalance(currentUser);
+        uint256 bal = larena.coinBalance(currentUser);
         bool useVirtual = _seed % 2 == 0;
 
         if (bal < price) {
-            vm.prank(address(ocmeme));
+            vm.prank(address(larena));
             coin.mintCoin(currentUser, price);
             if (useVirtual) {
                 vm.prank(currentUser);
-                ocmeme.addCoin(price);
+                larena.addCoin(price);
             }
         } else {
             // vbalance > price
             if (!useVirtual) {
                 // withdrawal
                 vm.prank(currentUser);
-                ocmeme.removeCoin(price);
+                larena.removeCoin(price);
             }
         }
 
         vm.prank(currentUser);
         uint256 pageID = pages.mintFromCoin(price, useVirtual);
         vm.prank(currentUser);
-        ocmeme.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
+        larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         pageIds.push(pageID);
     }
 
     function setWinners(uint256 _seed) public virtual countCall("setWinners") {
         vm.warp(block.timestamp + (1 days * (_seed % 20)));
         if (_seed % 5 == 0) {
-            ocmeme.crownWinners();
+            larena.crownWinners();
         }
     }
 
@@ -135,7 +135,7 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
         uint256 _seed
     ) public virtual useUser(_seed) useOtherUser(_seed) countCall("transfer") {
         uint256[] memory tokens = ocOwner[currentUser];
-        (uint256 _count, , , ) = ocmeme.getUserData(currentUser);
+        (uint256 _count, , , ) = larena.getUserData(currentUser);
         if (_count > 0) {
             // load token were about to pop
             uint256 token = tokens[_count - 1];
@@ -144,42 +144,42 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
             ocOwner[otherUser].push(token);
             // transfer
             vm.prank(currentUser);
-            ocmeme.transferFrom(currentUser, otherUser, token);
+            larena.transferFrom(currentUser, otherUser, token);
         }
     }
 
     function vaultMint(uint256 _seed) public virtual countCall("vaultMint") {
         if (_seed % 10 == 0) {
-            ocmeme.vaultMint();
+            larena.vaultMint();
         }
     }
 
     function claim(uint256 _seed) public virtual countCall("claim") {
-        (uint256 maxepochID, ) = ocmeme.currentEpoch();
+        (uint256 maxepochID, ) = larena.currentEpoch();
         uint256 epochID = _seed % maxepochID;
         if (epochID > 0) {
             uint256 claimType = _seed % 3;
-            Ocmeme.Epoch memory e = getEpochs(epochID, ocmeme);
+            Larena.Epoch memory e = getEpochs(epochID, larena);
             if (e.goldPageID > 0) {
                 if (claimType == 0) {
                     address owner = pages.ownerOf(e.goldPageID);
                     vm.prank(owner);
-                    ocmeme.claimGold(epochID);
+                    larena.claim(epochID, Larena.ClaimType.GOLD);
                 } else if (claimType == 1) {
                     address owner = pages.ownerOf(e.silverPageID);
                     vm.prank(owner);
-                    ocmeme.claimSilver(epochID);
+                    larena.claim(epochID, Larena.ClaimType.SILVER);
                 } else if (claimType == 2) {
                     address owner = pages.ownerOf(e.bronzePageID);
                     vm.prank(owner);
-                    ocmeme.claimBronze(epochID);
+                    larena.claim(epochID, Larena.ClaimType.BRONZE);
                 }
             }
         }
     }
 
     function recoverClaims() public virtual countCall("recover") {
-        (uint256 epochID, ) = ocmeme.currentEpoch();
+        (uint256 epochID, ) = larena.currentEpoch();
         for (uint i = 1; i < epochID; i++) {
             bool found;
             for (uint j; j < recoveries.length; j++) {
@@ -190,10 +190,10 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
             }
             if (found) continue;
 
-            uint256 estart = ocmeme.epochStart(i);
-            if (estart + ocmeme.RECOVERY_PERIOD() < block.timestamp) {
-                vm.prank(ocmeme.owner());
-                ocmeme.recoverPayout(i);
+            uint256 estart = larena.epochStart(i);
+            if (estart + larena.RECOVERY_PERIOD() < block.timestamp) {
+                vm.prank(larena.owner());
+                larena.recoverPayout(i);
                 recoveries.push(i);
             } else {
                 break;

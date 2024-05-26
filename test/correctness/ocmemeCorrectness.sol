@@ -4,14 +4,15 @@ pragma solidity ^0.8.24;
 import {Vm} from "forge-std/Vm.sol";
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {LibString} from "solmate/utils/LibString.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 import {toDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 import {console2 as console} from "forge-std/console2.sol";
 
 import {Coin} from "../../src/Coin.sol";
 import {Pages} from "../../src/Pages.sol";
+import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 
-contract OcmemeCorrectnessTest is DSTestPlus {
+contract LarenaCorrectnessTest is DSTestPlus {
     using LibString for uint256;
 
     uint256 internal immutable TWENTY_YEARS = 7300 days;
@@ -30,10 +31,15 @@ contract OcmemeCorrectnessTest is DSTestPlus {
 
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
-    Ocmeme internal ocmeme;
+    Larena internal larena;
 
     function setUp() public {
-        ocmeme = new Ocmeme(Coin(address(0)), Pages(address(0)), address(0));
+        larena = new Larena(
+            Coin(address(0)),
+            Pages(address(0)),
+            Unrevealed(address(0)),
+            address(0)
+        );
         LOGISTIC_SCALE = int256((MAX_MINTABLE + 1) * 2e18);
     }
 
@@ -45,7 +51,7 @@ contract OcmemeCorrectnessTest is DSTestPlus {
         timeSinceStart = bound(timeSinceStart, 0, TWENTY_YEARS);
 
         // Calculate actual price from VRGDA.
-        try ocmeme.getVRGDAPrice(toDaysWadUnsafe(timeSinceStart), numSold) returns (
+        try larena.getVRGDAPrice(toDaysWadUnsafe(timeSinceStart), numSold) returns (
             uint256 actualPrice
         ) {
             // Calculate expected price from python script.
@@ -81,7 +87,7 @@ contract OcmemeCorrectnessTest is DSTestPlus {
         string[] memory inputs = new string[](19);
         inputs[0] = "python3";
         inputs[1] = "analysis/compute_price.py";
-        inputs[2] = "ocmeme";
+        inputs[2] = "larena";
         inputs[3] = "--time_since_start";
         inputs[4] = _timeSinceStart.toString();
         inputs[5] = "--num_sold";

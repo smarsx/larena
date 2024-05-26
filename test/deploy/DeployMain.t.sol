@@ -5,7 +5,7 @@ import {DeployMain} from "../../script/deploy/DeployMain.s.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {Test} from "forge-std/Test.sol";
 
-contract DeployPolygonTest is Test {
+contract DeployMainnetTest is Test {
     DeployMain deployScript;
 
     function setUp() public {
@@ -14,7 +14,7 @@ contract DeployPolygonTest is Test {
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
         vm.setEnv(
-            "OCMEME_PRIVATE_KEY",
+            "LARENA_PRIVATE_KEY",
             "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         );
         vm.setEnv(
@@ -34,19 +34,19 @@ contract DeployPolygonTest is Test {
 
     /// @notice Test coin addresses where correctly set.
     function testCoinAddressCorrectness() public view {
-        assertEq(deployScript.coin().ocmeme(), address(deployScript.ocmeme()));
+        assertEq(deployScript.coin().larena(), address(deployScript.larena()));
         assertEq(address(deployScript.coin().pages()), address(deployScript.pages()));
     }
 
     /// @notice Test page addresses where correctly set.
     function testPagesAddressCorrectness() public view {
-        assertEq(address(deployScript.pages().ocmeme()), address(deployScript.ocmeme()));
+        assertEq(address(deployScript.pages().larena()), address(deployScript.larena()));
         assertEq(address(deployScript.pages().coin()), address(deployScript.coin()));
     }
 
-    /// @notice Test that ocmeme ownership is correctly transferred to cold wallet.
-    function testOcmemeOwnership() public view {
-        assertEq(deployScript.ocmeme().owner(), deployScript.coldWallet());
+    /// @notice Test that larena ownership is correctly transferred to cold wallet.
+    function testLarenaOwnership() public view {
+        assertEq(deployScript.larena().owner(), deployScript.coldWallet());
     }
 
     function testReserveOwnership() public view {

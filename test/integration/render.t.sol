@@ -9,16 +9,18 @@ import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Coin} from "../../src/Coin.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Decoder} from "../utils/Decoder.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
+import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 
 contract RenderTest is Test, Content, MemoryPlus {
-    Ocmeme ocmeme;
+    Larena larena;
     Coin internal coin;
     Pages internal pages;
     Reserve internal reserve;
+    Unrevealed internal unrevealed;
     Utilities internal utils;
     Decoder internal decoder;
 
@@ -33,52 +35,53 @@ contract RenderTest is Test, Content, MemoryPlus {
         decoder = new Decoder();
         super.setUp();
 
-        address coinAddress = utils.predictContractAddress(address(this), 1, vm);
-        address pagesAddress = utils.predictContractAddress(address(this), 2, vm);
-        address ocmemeAddress = utils.predictContractAddress(address(this), 3, vm);
+        address coinAddress = utils.predictContractAddress(address(this), 2, vm);
+        address pagesAddress = utils.predictContractAddress(address(this), 3, vm);
+        address larenaAddress = utils.predictContractAddress(address(this), 4, vm);
         reserve = new Reserve(
-            Ocmeme(ocmemeAddress),
+            Larena(larenaAddress),
             Pages(pagesAddress),
             Coin(coinAddress),
             address(this)
         );
-        coin = new Coin(ocmemeAddress, pagesAddress);
-        pages = new Pages(block.timestamp, coin, address(reserve), Ocmeme(ocmemeAddress));
-        ocmeme = new Ocmeme(coin, Pages(pagesAddress), address(reserve));
+        unrevealed = new Unrevealed();
+        coin = new Coin(larenaAddress, pagesAddress);
+        pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
+        larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
 
         user = utils.createUsers(1, vm)[0];
 
-        owner = ocmeme.owner();
+        owner = larena.owner();
 
         vm.prank(owner);
-        ocmeme.setStart();
+        larena.setStart();
 
-        (epochID, ) = ocmeme.currentEpoch();
-        ocmeme.vaultMint();
+        (epochID, ) = larena.currentEpoch();
+        larena.vaultMint();
 
         for (uint i; i < 256; i++) {
-            uint256 p = ocmeme.getPrice();
+            uint256 p = larena.getPrice();
             vm.deal(user, p);
             vm.prank(user);
-            ocmeme.mint{value: p}();
+            larena.mint{value: p}();
         }
     }
 
     function testRevertBigId() public {
-        vm.expectRevert(Ocmeme.InvalidID.selector);
-        ocmeme.tokenURI(10000);
+        vm.expectRevert(Larena.InvalidID.selector);
+        larena.tokenURI(10000);
     }
 
     function testUnrevealedUri(uint8 _tokenID) public {
         vm.assume(_tokenID > 0);
         string memory title = getTitle(epochID);
-        string memory uri = ocmeme.tokenURI(_tokenID);
+        string memory uri = larena.tokenURI(_tokenID);
         _checkMemory(uri);
 
         Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.IMG,
-            1,
+            16,
             vm,
             uri
         );
@@ -89,29 +92,29 @@ contract RenderTest is Test, Content, MemoryPlus {
 
     function testUri() public {
         string memory expectedSvg = getImg();
-        string memory expectedDescription = "ocmeme loader";
+        string memory expectedDescription = "larena loader";
         string memory title = getTitle(epochID);
 
         uint256 p = pages.pagePrice();
-        vm.prank(address(ocmeme));
+        vm.prank(address(larena));
         coin.mintCoin(user, p);
         vm.prank(user);
         uint256 pageID = pages.mintFromCoin(p, false);
 
         vm.prank(user);
-        ocmeme.submit(pageID, 0, NFTMeta.TypeURI(0), expectedDescription, expectedSvg);
+        larena.submit(pageID, 0, NFTMeta.TypeURI(0), expectedDescription, expectedSvg);
 
-        uint256 start = ocmeme.epochStart(epochID);
-        vm.warp(start + ocmeme.EPOCH_LENGTH());
-        ocmeme.crownWinners();
+        uint256 start = larena.epochStart(epochID);
+        vm.warp(start + larena.EPOCH_LENGTH());
+        larena.crownWinners();
 
-        string memory uri = ocmeme.tokenURI(1);
+        string memory uri = larena.tokenURI(1);
         _checkMemory(uri);
 
         Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.IMG,
-            2,
+            22,
             vm,
             uri
         );
@@ -123,30 +126,30 @@ contract RenderTest is Test, Content, MemoryPlus {
 
     function testUriHtml() public {
         string memory expectedAni = getAnimation();
-        string memory expectedDescription = "ocmeme loader";
+        string memory expectedDescription = "larena loader";
         string memory title = getTitle(epochID);
 
         uint256 p = pages.pagePrice();
 
-        vm.prank(address(ocmeme));
+        vm.prank(address(larena));
         coin.mintCoin(user, p);
         vm.prank(address(user));
         uint256 pageID = pages.mintFromCoin(p, false);
 
         vm.prank(user);
-        ocmeme.submit(pageID, 0, NFTMeta.TypeURI(1), expectedDescription, expectedAni);
+        larena.submit(pageID, 0, NFTMeta.TypeURI(1), expectedDescription, expectedAni);
 
-        uint256 start = ocmeme.epochStart(epochID);
-        vm.warp(start + ocmeme.EPOCH_LENGTH());
-        ocmeme.crownWinners();
+        uint256 start = larena.epochStart(epochID);
+        vm.warp(start + larena.EPOCH_LENGTH());
+        larena.crownWinners();
 
-        string memory uri = ocmeme.tokenURI(1);
+        string memory uri = larena.tokenURI(1);
         _checkMemory(uri);
 
         Decoder.DecodedContent memory decoded = decoder.decodeContent(
             false,
             NFTMeta.TypeURI.ANIMATION,
-            2,
+            21,
             vm,
             uri
         );
@@ -161,12 +164,12 @@ contract RenderTest is Test, Content, MemoryPlus {
         string memory baseURI = "https://hotdog.com/";
         string memory expectedURI = string.concat(baseURI, "1");
 
-        ocmeme.updateBaseURI(baseURI);
-        string memory uri = ocmeme.tokenURI(1);
+        larena.updateBaseURI(baseURI);
+        string memory uri = larena.tokenURI(1);
         assertEq(uri, expectedURI);
 
-        ocmeme.updateBaseURI("");
-        string memory uri2 = ocmeme.tokenURI(1);
+        larena.updateBaseURI("");
+        string memory uri2 = larena.tokenURI(1);
         assertTrue(bytes(uri2).length > 30);
         vm.stopPrank();
     }

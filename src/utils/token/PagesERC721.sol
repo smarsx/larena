@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
-import {Ocmeme} from "../../Ocmeme.sol";
+import {Larena} from "../../Larena.sol";
 
-/// @notice ERC721 implementation optimized for Pages by pre-approving them to the Ocmeme contract.
+/// @notice ERC721 implementation optimized for Pages by pre-approving them to the larena contract.
 /// @author Modified from Art-Gobblers. (https://github.com/artgobblers/art-gobblers/blob/master/src/utils/token/GobblersERC721.sol)
 /// @author Modified from Solmate. (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC721.sol)
 abstract contract PagesERC721 {
@@ -32,12 +32,12 @@ abstract contract PagesERC721 {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    Ocmeme public immutable ocmeme;
+    Larena public immutable larena;
 
-    constructor(Ocmeme _ocmeme, string memory _name, string memory _symbol) {
+    constructor(Larena _larena, string memory _name, string memory _symbol) {
         name = _name;
         symbol = _symbol;
-        ocmeme = _ocmeme;
+        larena = _larena;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -70,7 +70,7 @@ abstract contract PagesERC721 {
         address owner,
         address operator
     ) public view returns (bool isApproved) {
-        if (operator == address(ocmeme)) return true; // Skip approvals for the Ocmeme contract.
+        if (operator == address(larena)) return true; // Skip approvals for the larena contract.
 
         return _isApprovedForAll[owner][operator];
     }

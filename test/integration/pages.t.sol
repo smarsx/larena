@@ -6,13 +6,13 @@ import {stdError} from "forge-std/StdError.sol";
 import {fromDaysWadUnsafe} from "solmate/utils/SignedWadMath.sol";
 
 import {Coin} from "../../src/Coin.sol";
-import {Ocmeme} from "../../src/Ocmeme.sol";
+import {Larena} from "../../src/Larena.sol";
 import {Pages} from "../../src/Pages.sol";
 import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 
 contract PagesIntegrationTest is Test {
-    Ocmeme ocmeme;
+    Larena larena;
     Coin internal coin;
     Pages internal pages;
     Utilities internal utils;
@@ -31,13 +31,13 @@ contract PagesIntegrationTest is Test {
         users = utils.createUsers(5, vm);
 
         coin = new Coin(
-            // Ocmeme:
+            // Larena:
             address(this),
             // Pages:
             utils.predictContractAddress(address(this), 1, vm)
         );
 
-        pages = new Pages(block.timestamp, coin, address(vault), Ocmeme(address(this)));
+        pages = new Pages(block.timestamp, coin, address(vault), Larena(address(this)));
 
         user = users[0];
     }

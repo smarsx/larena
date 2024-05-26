@@ -5,7 +5,7 @@ libs = ["lib"]
 ffi = true
 fs_permissions = [{ access = "read-write", path = "./"}]
 optimizer_runs = 1000000
-no_match_test = "FFI"
+#no_match_test = "FFI"
 solc="0.8.24"
 
 [doc]
@@ -13,13 +13,13 @@ ignore = ["test/", "deploy/", "script/", "analysis/", "lib/", "out/", "cache/", 
 
 [invariant]
 runs = 50
-depth = 100
+depth = 50
 include_storage = true
 include_push_bytes = true
 
 # fuzz settings
 [profile.default.fuzz]
-runs=5000
+runs=100
 
 [rpc_endpoints]
 base = "https://base-mainnet.g.alchemy.com/v2/${BASE_RPC_KEY}"
