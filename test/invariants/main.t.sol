@@ -14,6 +14,7 @@ import {MainActor} from "./actors/mainActor.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract MainInvariantTest is Test, Interfaces {
     Larena public larena;
@@ -24,6 +25,7 @@ contract MainInvariantTest is Test, Interfaces {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
 
     function setUp() public {
         utils = new Utilities();
@@ -44,13 +46,14 @@ contract MainInvariantTest is Test, Interfaces {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+        constants = new Constants();
 
         // set start
         vm.prank(larena.owner());
         larena.setStart();
 
         // create handler
-        actor = new MainActor(larena, pages, coin, reserve);
+        actor = new MainActor(larena, pages, coin, reserve, constants);
 
         // transfer ownership to handler
         larena.transferOwnership(address(actor));
@@ -74,7 +77,7 @@ contract MainInvariantTest is Test, Interfaces {
     // can pay claims
     function invariant_solvency() public view {
         (uint256 maxid, ) = larena.currentEpoch();
-        uint256 d = larena.PAYOUT_DENOMINATOR();
+        uint256 d = constants.PAYOUT_DENOMINATOR();
         uint256 credits;
         for (uint256 i = 1; i <= maxid; i++) {
             Larena.Epoch memory e = getEpochs(i, larena);
@@ -84,16 +87,16 @@ contract MainInvariantTest is Test, Interfaces {
             uint256 vaultClaims = e.claims & (1 << uint8(Larena.ClaimType.VAULT));
 
             if (goldClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.GOLD_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, constants.GOLD_SHARE(), d);
             }
             if (silverClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.SILVER_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, constants.SILVER_SHARE(), d);
             }
             if (bronzeClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.BRONZE_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, constants.BRONZE_SHARE(), d);
             }
             if (vaultClaims == 0) {
-                credits += FixedPointMathLib.mulDiv(e.proceeds, larena.VAULT_SHARE(), d);
+                credits += FixedPointMathLib.mulDiv(e.proceeds, constants.VAULT_SHARE(), d);
             }
         }
         assertTrue(address(larena).balance >= credits);
@@ -104,7 +107,7 @@ contract MainInvariantTest is Test, Interfaces {
         (uint256 maxid, ) = larena.currentEpoch();
         for (uint i = 1; i <= maxid; i++) {
             uint256[] memory pageIds = larena.getSubmissions(i);
-            assertTrue(pageIds.length <= larena.MAX_SUBMISSIONS());
+            assertTrue(pageIds.length <= constants.MAX_SUBMISSIONS());
         }
     }
 

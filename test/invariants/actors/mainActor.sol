@@ -11,12 +11,14 @@ import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {Interfaces} from "../../utils/Interfaces.sol";
+import {Constants} from "../../utils/Constants.sol";
 
 contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
     Larena larena;
     Pages pages;
     Coin coin;
     Reserve reserve;
+    Constants constants;
 
     address[] users = [
         address(uint160(1111)),
@@ -71,11 +73,12 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
         _;
     }
 
-    constructor(Larena _larena, Pages _pages, Coin _coin, Reserve _reserve) {
+    constructor(Larena _larena, Pages _pages, Coin _coin, Reserve _reserve, Constants _constants) {
         larena = _larena;
         pages = _pages;
         coin = _coin;
         reserve = _reserve;
+        constants = _constants;
     }
 
     function mint(uint256 _seed) public virtual useUser(_seed) countCall("mint") {
@@ -191,7 +194,7 @@ contract MainActor is CommonBase, StdCheats, StdUtils, Interfaces {
             if (found) continue;
 
             uint256 estart = larena.epochStart(i);
-            if (estart + larena.RECOVERY_PERIOD() < block.timestamp) {
+            if (estart + constants.RECOVERY_PERIOD() < block.timestamp) {
                 vm.prank(larena.owner());
                 larena.recoverPayout(i);
                 recoveries.push(i);

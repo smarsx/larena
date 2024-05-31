@@ -11,6 +11,7 @@ import {Utilities} from "../utils/Utilities.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract GeneralIntegrationTest is Test, MemoryPlus {
     Larena larena;
@@ -20,6 +21,7 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
     Unrevealed internal unrevealed;
     Utilities internal utils;
     Interfaces internal interfaces;
+    Constants internal constants;
     address actor;
     address[] users;
 
@@ -40,6 +42,8 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
         actor = utils.createUsers(1, vm)[0];
+
+        constants = new Constants();
         users = utils.createUsers(5, vm);
 
         vm.prank(larena.owner());
@@ -47,13 +51,33 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
     }
 
     function testShare(uint136 p) public view {
-        uint256 a = FixedPointMathLib.mulDiv(p, larena.GOLD_SHARE(), larena.PAYOUT_DENOMINATOR());
-        uint256 b = FixedPointMathLib.mulDiv(p, larena.SILVER_SHARE(), larena.PAYOUT_DENOMINATOR());
-        uint256 c = FixedPointMathLib.mulDiv(p, larena.BRONZE_SHARE(), larena.PAYOUT_DENOMINATOR());
+        uint256 a = FixedPointMathLib.mulDiv(
+            p,
+            constants.GOLD_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
+        );
+        uint256 b = FixedPointMathLib.mulDiv(
+            p,
+            constants.SILVER_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
+        );
+        uint256 c = FixedPointMathLib.mulDiv(
+            p,
+            constants.BRONZE_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
+        );
         uint256 d = p -
-            (FixedPointMathLib.mulDiv(p, larena.GOLD_SHARE(), larena.PAYOUT_DENOMINATOR()) +
-                FixedPointMathLib.mulDiv(p, larena.SILVER_SHARE(), larena.PAYOUT_DENOMINATOR()) +
-                FixedPointMathLib.mulDiv(p, larena.BRONZE_SHARE(), larena.PAYOUT_DENOMINATOR()));
+            (FixedPointMathLib.mulDiv(p, constants.GOLD_SHARE(), constants.PAYOUT_DENOMINATOR()) +
+                FixedPointMathLib.mulDiv(
+                    p,
+                    constants.SILVER_SHARE(),
+                    constants.PAYOUT_DENOMINATOR()
+                ) +
+                FixedPointMathLib.mulDiv(
+                    p,
+                    constants.BRONZE_SHARE(),
+                    constants.PAYOUT_DENOMINATOR()
+                ));
         assertEq(a + b + c + d, p);
     }
 
@@ -137,12 +161,12 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
         _epochID = bound(_epochID, 1, 1000);
         uint256 vaultSupply = interfaces.getVaultSupply(
             _epochID,
-            larena.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
-            larena.VAULT_SUPPLY_PER_EPOCH(),
-            larena.VAULT_SUPPLY_SWITCHOVER()
+            constants.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
+            constants.VAULT_SUPPLY_PER_EPOCH(),
+            constants.VAULT_SUPPLY_SWITCHOVER()
         );
         assertTrue(vaultSupply >= 2);
-        assertTrue(vaultSupply <= larena.INITIAL_VAULT_SUPPLY_PER_EPOCH());
+        assertTrue(vaultSupply <= constants.INITIAL_VAULT_SUPPLY_PER_EPOCH());
     }
 
     function testVaultSupplyStrictlyDecreasesOrPlateaus() public view {
@@ -150,9 +174,9 @@ contract GeneralIntegrationTest is Test, MemoryPlus {
         for (uint256 i = 1; i < 1000; i++) {
             uint256 vaultSupply = interfaces.getVaultSupply(
                 i,
-                larena.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
-                larena.VAULT_SUPPLY_PER_EPOCH(),
-                larena.VAULT_SUPPLY_SWITCHOVER()
+                constants.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
+                constants.VAULT_SUPPLY_PER_EPOCH(),
+                constants.VAULT_SUPPLY_SWITCHOVER()
             );
             if (prev == 0) {
                 prev = vaultSupply;

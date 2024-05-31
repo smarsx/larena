@@ -11,6 +11,7 @@ import {Reserve} from "../../src/utils/Reserve.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract MintIntegrationTest is Test, Interfaces {
     Larena larena;
@@ -19,6 +20,7 @@ contract MintIntegrationTest is Test, Interfaces {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
     address actor;
 
     function setUp() public {
@@ -36,6 +38,8 @@ contract MintIntegrationTest is Test, Interfaces {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+
+        constants = new Constants();
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(larena.owner());
@@ -47,9 +51,9 @@ contract MintIntegrationTest is Test, Interfaces {
         (uint256 epochID, ) = larena.currentEpoch();
         uint256 vaultNum = getVaultSupply(
             epochID,
-            larena.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
-            larena.VAULT_SUPPLY_PER_EPOCH(),
-            larena.VAULT_SUPPLY_SWITCHOVER()
+            constants.INITIAL_VAULT_SUPPLY_PER_EPOCH(),
+            constants.VAULT_SUPPLY_PER_EPOCH(),
+            constants.VAULT_SUPPLY_SWITCHOVER()
         );
 
         Larena.Epoch memory e;

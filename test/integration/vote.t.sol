@@ -13,6 +13,7 @@ import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     Larena larena;
@@ -21,6 +22,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
     address actor;
 
     uint256 public pageID;
@@ -40,6 +42,8 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+
+        constants = new Constants();
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(larena.owner());
@@ -59,7 +63,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
     }
 
     function testNoDeadzone(uint256 _warp, uint200 _amt) public {
-        vm.assume(_warp < larena.DECAY_ZONE());
+        vm.assume(_warp < constants.DECAY_ZONE());
         vm.warp(block.timestamp + _warp);
 
         // mint too to be used in vote.
@@ -82,7 +86,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         vm.warp(block.timestamp + _warp);
 
         (, uint256 start) = larena.currentEpoch();
-        bool isdz = block.timestamp - start > larena.DECAY_ZONE();
+        bool isdz = block.timestamp - start > constants.DECAY_ZONE();
 
         Larena.Vote memory vp = getVotes(pageID, larena);
 
@@ -103,7 +107,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
 
     function testDeadzone() public brutalizeMemory {
         (, uint256 start) = larena.currentEpoch();
-        vm.warp(start + larena.DECAY_ZONE() + 1 hours);
+        vm.warp(start + constants.DECAY_ZONE() + 1 hours);
 
         vm.prank(address(larena));
         coin.mintCoin(actor, 100 ether);
@@ -142,7 +146,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         uint256 mypage = pages.mintFromCoin(price, false);
 
         // submit, reverse time if submission deadzone. need to submit to vote.
-        while (block.timestamp > start + larena.SUBMISSION_DEADLINE()) {
+        while (block.timestamp > start + constants.SUBMISSION_DEADLINE()) {
             vm.warp(block.timestamp - 1 days);
         }
         vm.prank(address(actor));
@@ -158,7 +162,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         larena.vote(mypage, _amt, false);
         Larena.Vote memory vp2 = getVotes(mypage, larena);
 
-        if (block.timestamp > start + larena.DECAY_ZONE()) {
+        if (block.timestamp > start + constants.DECAY_ZONE()) {
             assertTrue(vp2.votes - vp.votes < _amt);
         } else {
             assertEq(vp2.votes - vp.votes, _amt);
@@ -188,7 +192,7 @@ contract VoteIntegrationTest is Test, MemoryPlus, Interfaces {
         uint256 amt = 1000 ether;
         uint256 expectedAmt = 963 ether;
         (, uint256 start) = larena.currentEpoch();
-        vm.warp(start + larena.DECAY_ZONE() + 1);
+        vm.warp(start + constants.DECAY_ZONE() + 1);
 
         // mint _amt to be voted with
         vm.prank(address(larena));

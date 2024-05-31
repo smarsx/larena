@@ -10,6 +10,7 @@ import {Reserve} from "../../src/utils/Reserve.sol";
 import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {Utilities} from "../utils/Utilities.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract SubmitIntegrationTest is Test {
     Larena larena;
@@ -18,6 +19,7 @@ contract SubmitIntegrationTest is Test {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
     address actor;
 
     function setUp() public {
@@ -35,6 +37,8 @@ contract SubmitIntegrationTest is Test {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+
+        constants = new Constants();
         actor = utils.createUsers(1, vm)[0];
 
         vm.prank(larena.owner());
@@ -70,7 +74,7 @@ contract SubmitIntegrationTest is Test {
         (uint256 epochID, ) = larena.currentEpoch();
         uint256 start = larena.epochStart(epochID);
 
-        if (block.timestamp - start > larena.SUBMISSION_DEADLINE()) {
+        if (block.timestamp - start > constants.SUBMISSION_DEADLINE()) {
             vm.expectRevert(Larena.InvalidTime.selector);
             larena.submit(pageID, 1, NFTMeta.TypeURI(0), "", "");
         } else {

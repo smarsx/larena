@@ -209,31 +209,35 @@ contract Pages is PagesERC721, LinearVRGDA {
         }
     }
 
-    function renderWithTraits(
-        uint256 pageID,
-        uint256 epochID,
-        uint256 emissionMultiple,
-        uint256 index
-    ) external view returns (string memory) {
-        Metadata memory metadata = pageMetadata[pageID];
-        return
-            metadata.delegate
-                ? DelegatePage(metadata.pointer).tokenUri(epochID, emissionMultiple, index)
-                : NFTMeta.renderWithTraits(emissionMultiple, SSTORE2.read(metadata.pointer));
-    }
+    // /// @notice render with metadata.
+    // /// @dev any attributes returned by a delegate should not be trusted as fact.
+    // function render(
+    //     uint256 pageID,
+    //     uint256 epochID,
+    //     uint256 emissionMultiple,
+    //     uint256 index
+    // ) external view returns (string memory) {
+    //     Metadata memory metadata = pageMetadata[pageID];
+    //     return
+    //         metadata.delegate
+    //             ? DelegatePage(metadata.pointer).tokenURI(epochID, emissionMultiple, index)
+    //             : NFTMeta.renderWithTraits(emissionMultiple, SSTORE2.read(metadata.pointer));
+    // }
 
     /*//////////////////////////////////////////////////////////////
                              TOKEN URI LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns a page's URI if it has been minted.
+    /// @notice Returns a page's URI.
     /// @param pageID The id of the page to get the URI for.
+    /// @dev a delegate will return only the image/animation_url data-uri
+    /// @dev default page will return data:application/json;base64 with fields name,description,image or animation_url
     function tokenURI(uint256 pageID) public view virtual override returns (string memory) {
         if (pageID == 0 || pageID > currentId) revert("NOT_MINTED");
         if (pageMetadata[pageID].pointer == address(0)) revert("NOT_SET");
         return
             pageMetadata[pageID].delegate
-                ? DelegatePage(pageMetadata[pageID].pointer).tokenUri()
+                ? DelegatePage(pageMetadata[pageID].pointer).tokenURI()
                 : NFTMeta.render(SSTORE2.read(pageMetadata[pageID].pointer));
     }
 }

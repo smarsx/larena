@@ -44,32 +44,33 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     uint256 public constant MAX_SUBMISSIONS = 100;
 
     /// @notice The royalty denominator (bps).
-    uint256 public constant ROYALTY_DENOMINATOR = 10000;
+    uint256 internal constant ROYALTY_DENOMINATOR = 10000;
 
     /// @notice Length of time until admin recovery of claims is allowed.
-    uint256 public constant RECOVERY_PERIOD = 420 days;
+    uint256 internal constant RECOVERY_PERIOD = 420 days;
 
     /// @notice Length of time epoch is active.
     uint256 public constant EPOCH_LENGTH = 30 days + 1 hours;
 
     /// @notice Submissions are not allowed in the 48 hours preceeding end of epoch.
-    uint256 public constant SUBMISSION_DEADLINE = 30 days - 47 hours;
+    uint256 public constant SUBMISSION_DEADLINE = EPOCH_LENGTH - 48 hours;
 
     /// @notice Voting power decays exponentially in the 12 hours preceeding end of epoch.
-    uint256 public constant DECAY_ZONE = 30 days - 11 hours;
+    /// @dev = EPOCH_LENGTH - 12 hours
+    uint256 internal constant DECAY_ZONE = 30 days - 11 hours;
 
     /// @notice number allowed to be minted to vault per epoch.
     /// @dev decreases each epoch until switchover
-    uint256 public constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
-    uint256 public constant VAULT_SUPPLY_SWITCHOVER = 28;
-    uint256 public constant VAULT_SUPPLY_PER_EPOCH = 2;
+    uint256 internal constant INITIAL_VAULT_SUPPLY_PER_EPOCH = 30;
+    uint256 internal constant VAULT_SUPPLY_SWITCHOVER = 28;
+    uint256 internal constant VAULT_SUPPLY_PER_EPOCH = 2;
 
     /// @notice Payout details.
-    uint256 public constant GOLD_SHARE = 85000;
-    uint256 public constant SILVER_SHARE = 8000;
-    uint256 public constant BRONZE_SHARE = 4000;
-    uint256 public constant VAULT_SHARE = 3000;
-    uint256 public constant PAYOUT_DENOMINATOR = 100000;
+    uint256 internal constant GOLD_SHARE = 85000;
+    uint256 internal constant SILVER_SHARE = 8000;
+    uint256 internal constant BRONZE_SHARE = 4000;
+    uint256 internal constant VAULT_SHARE = 3000;
+    uint256 internal constant PAYOUT_DENOMINATOR = 100000;
 
     /// @notice The address of Reserve vault.
     address public immutable $vault;
@@ -574,16 +575,20 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
 
     /// @notice Render tokenURI.
     function _tokenURI(uint256 _id) public view returns (string memory) {
-        LarenaData memory md = getLarenaData[_id];
-        Epoch memory e = $epochs[md.epochID];
-        if (md.epochID == 0) revert InvalidID();
+        LarenaData memory ld = getLarenaData[_id];
+        Epoch memory epoch = $epochs[ld.epochID];
+        if (ld.epochID == 0) revert InvalidID();
 
-        if (e.goldPageID == 0) {
+        if (epoch.goldPageID == 0) {
             // unrevealed
-            return $unrevealed.tokenUri(md.epochID, md.index);
+            return $unrevealed.tokenUri(ld.epochID, ld.index);
         } else {
             // revealed
-            return $pages.renderWithTraits(_id, md.epochID, md.emissionMultiple, md.index);
+            Pages.Metadata memory meta = $pages.GetMetadata(_id);
+            return
+                meta.delegate
+                    ? DelegatePage(meta.pointer).tokenURI(ld.epochID, ld.emissionMultiple, ld.index)
+                    : NFTMeta.renderWithTraits(ld.emissionMultiple, SSTORE2.read(meta.pointer));
         }
     }
 
@@ -639,13 +644,12 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
         uint256 _tokenId,
         uint256 _salePrice
     ) external view returns (address, uint256) {
-        LarenaData memory md = getLarenaData[_tokenId];
-        uint256 winningPageId = uint256($epochs[md.epochID].goldPageID);
+        LarenaData memory ld = getLarenaData[_tokenId];
 
-        address owner = $pages.ownerOf(winningPageId);
-        Pages.Metadata memory m = $pages.GetMetadata(_tokenId);
+        address owner = $pages.ownerOf($epochs[ld.epochID].goldPageID);
+        Pages.Metadata memory meta = $pages.GetMetadata(_tokenId);
 
-        return (owner, (_salePrice * uint256(m.royalty)) / ROYALTY_DENOMINATOR);
+        return (owner, (_salePrice * uint256(meta.royalty)) / ROYALTY_DENOMINATOR);
     }
 
     function supportsInterface(
@@ -682,12 +686,12 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     /// @dev timestamp must be > RECOVERY_PERIOD.
     function recoverPayout(uint256 _epochID) external onlyOwner {
         uint256 startTime = _epochStart(_epochID);
-        if (startTime + RECOVERY_PERIOD > block.timestamp) revert InvalidTime();
+        if (startTime + RECOVERY_PERIOD > block.timestamp) revert();
 
         Epoch memory e = $epochs[_epochID];
 
         // already recovered
-        if (uint256(e.claims) == 255) revert DuplicateClaim();
+        if (uint256(e.claims) == 255) revert();
 
         // fill the bits
         $epochs[_epochID].claims = 255;
@@ -728,6 +732,11 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     /*///////////////////////////////////////////////////////////////////
                                     UTILS
     //////////////////////////////////////////////////////////////////*/
+
+    /// @notice Get page ids submitted to an epoch.
+    function getSubmissions(uint256 _epochID) public view returns (uint256[] memory) {
+        return $submissions[_epochID];
+    }
 
     /// @notice Get active epochID and its respective start time.
     function currentEpoch() public view returns (uint256, uint256) {
@@ -800,12 +809,7 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
         }
     }
 
-    /// @notice Get page ids submitted to an epoch.
-    function getSubmissions(uint256 _epochID) public view returns (uint256[] memory) {
-        return $submissions[_epochID];
-    }
-
-    // helpers
+    // helpers for readability
     function getClaimShare(ClaimType _ct) internal pure returns (uint256) {
         if (_ct == ClaimType.GOLD) {
             return GOLD_SHARE;

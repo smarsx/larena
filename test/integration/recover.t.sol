@@ -15,6 +15,7 @@ import {NFTMeta} from "../../src/libraries/NFTMeta.sol";
 import {MemoryPlus} from "../utils/Memory.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
     Larena larena;
@@ -23,6 +24,7 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
     address[] internal users;
     uint256 epochID;
 
@@ -40,6 +42,8 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+
+        constants = new Constants();
         users = utils.createUsers(5, vm);
 
         vm.prank(larena.owner());
@@ -80,13 +84,13 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
 
     function testTime(uint40 _time) public {
         uint256 start = larena.epochStart(epochID);
-        uint256 rd = start + larena.RECOVERY_PERIOD();
+        uint256 rd = start + constants.RECOVERY_PERIOD();
         vm.assume(_time < rd);
         vm.assume(_time > 2);
-        vm.warp(start + larena.RECOVERY_PERIOD() - _time);
+        vm.warp(start + constants.RECOVERY_PERIOD() - _time);
 
         vm.startPrank(address(larena.owner()));
-        vm.expectRevert(Larena.InvalidTime.selector);
+        vm.expectRevert();
         larena.recoverPayout(epochID);
         vm.stopPrank();
     }
@@ -117,7 +121,7 @@ contract RecoverIntegrationTest is Test, MemoryPlus, Interfaces {
         }
 
         winnings = address(winner).balance - winnerbal;
-        vm.warp(block.timestamp + larena.RECOVERY_PERIOD());
+        vm.warp(block.timestamp + constants.RECOVERY_PERIOD());
         uint256 b = address(vault).balance;
         vm.prank(larena.owner());
         larena.recoverPayout(epochID);

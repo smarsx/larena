@@ -10,23 +10,21 @@ contract Delegate is DelegatePage {
 
     /// @notice return data-uri of resource.
     /// @dev "data:image/svg+xml;base64,xxx"
-    /// @dev used in Pages.tokenURI
-    function tokenUri() external pure returns (string memory) {
+    /// @dev all types of data uri are technically valid, frontend support is not guaranteed.
+    function tokenURI() external pure returns (string memory) {
         return
             string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(getSvg()))));
     }
 
-    /// @notice return data-uri with metadata and traits.
-    /// @dev expected to be data-uri of type data:application/json;base64
-    /// @dev required fields: name, description, attributes, image and/or animation_url
-    /// @dev required attributes: emissionMultiple
+    /// @notice return data-uri with metadata.
+    /// @dev data:application/json;base64
+    /// @dev required fields: name, description, image and/or animation_url
     /// @dev prefer name to be "larena #{_epochID}"
-    /// @dev used in larena.tokenURI when Page is the epochs winner (Gold).
     /// @dev for further info on params see src/utils/token/LarenaERC721.sol:LarenaData
     /// @param _epochID epoch of the respective larena.
     /// @param _emissionMultiple rate at which larena emits Coin.
     /// @param _index inner-epoch ID.
-    function tokenUri(
+    function tokenURI(
         uint256 _epochID,
         uint256 _emissionMultiple,
         uint256 _index
@@ -40,10 +38,8 @@ contract Delegate is DelegatePage {
                             '{"name":"',
                             getTitle(_epochID),
                             '", "description":"the delegated page.", "image": "data:image/svg+xml;base64,',
-                            getSvg(),
-                            '", "attributes": [{ "trait_type": "Emission Multiple", "value": "',
-                            _emissionMultiple.toString(),
-                            '"}]}'
+                            Base64.encode(bytes(getSvg())),
+                            '"}'
                         )
                     )
                 )

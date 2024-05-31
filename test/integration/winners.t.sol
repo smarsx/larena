@@ -16,6 +16,7 @@ import {MemoryPlus} from "../utils/Memory.sol";
 import {GasHelpers} from "../utils/GasHelper.t.sol";
 import {Interfaces} from "../utils/Interfaces.sol";
 import {Unrevealed} from "../../src/utils/Unrevealed.sol";
+import {Constants} from "../utils/Constants.sol";
 
 contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
     Larena larena;
@@ -24,6 +25,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
     Reserve internal reserve;
     Unrevealed internal unrevealed;
     Utilities internal utils;
+    Constants internal constants;
     address actor;
     address[] actors;
 
@@ -42,6 +44,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
         coin = new Coin(larenaAddress, pagesAddress);
         pages = new Pages(block.timestamp, coin, address(reserve), Larena(larenaAddress));
         larena = new Larena(coin, Pages(pagesAddress), unrevealed, address(reserve));
+        constants = new Constants();
         actor = utils.createUsers(1, vm)[0];
         actors = utils.createUsers(10, vm);
 
@@ -89,34 +92,34 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
 
         uint256 a = FixedPointMathLib.mulDiv(
             e.proceeds,
-            larena.GOLD_SHARE(),
-            larena.PAYOUT_DENOMINATOR()
+            constants.GOLD_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
         );
         uint256 b = FixedPointMathLib.mulDiv(
             e.proceeds,
-            larena.SILVER_SHARE(),
-            larena.PAYOUT_DENOMINATOR()
+            constants.SILVER_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
         );
         uint256 c = FixedPointMathLib.mulDiv(
             e.proceeds,
-            larena.BRONZE_SHARE(),
-            larena.PAYOUT_DENOMINATOR()
+            constants.BRONZE_SHARE(),
+            constants.PAYOUT_DENOMINATOR()
         );
         uint256 d = e.proceeds -
             (FixedPointMathLib.mulDiv(
                 e.proceeds,
-                larena.GOLD_SHARE(),
-                larena.PAYOUT_DENOMINATOR()
+                constants.GOLD_SHARE(),
+                constants.PAYOUT_DENOMINATOR()
             ) +
                 FixedPointMathLib.mulDiv(
                     e.proceeds,
-                    larena.SILVER_SHARE(),
-                    larena.PAYOUT_DENOMINATOR()
+                    constants.SILVER_SHARE(),
+                    constants.PAYOUT_DENOMINATOR()
                 ) +
                 FixedPointMathLib.mulDiv(
                     e.proceeds,
-                    larena.BRONZE_SHARE(),
-                    larena.PAYOUT_DENOMINATOR()
+                    constants.BRONZE_SHARE(),
+                    constants.PAYOUT_DENOMINATOR()
                 ));
 
         vm.startPrank(actor);
@@ -189,7 +192,7 @@ contract WinnersIntegrationTest is Test, GasHelpers, MemoryPlus, Interfaces {
     }
 
     function testCrownWinnerMaxGas() public {
-        uint256 max = larena.MAX_SUBMISSIONS();
+        uint256 max = constants.MAX_SUBMISSIONS();
         for (uint256 i; i < max; i++) {
             address act = actors[i % actors.length];
             uint256 price = pages.pagePrice();

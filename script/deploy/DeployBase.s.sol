@@ -41,9 +41,9 @@ abstract contract DeployBase is Script {
         address coinDeployerAddress = vm.addr(coinKey);
 
         // precompute contract addresses, based on contract deploy nonces
-        address larenaAddress = LibRLP.computeAddress(larenaDeployerAddress, 6);
-        address pageAddress = LibRLP.computeAddress(pagesDeployerAddress, 3);
-        address coinAddress = LibRLP.computeAddress(coinDeployerAddress, 3);
+        address larenaAddress = LibRLP.computeAddress(larenaDeployerAddress, 0);
+        address pageAddress = LibRLP.computeAddress(pagesDeployerAddress, 0);
+        address coinAddress = LibRLP.computeAddress(coinDeployerAddress, 0);
 
         vm.startBroadcast(deployerKey);
 
