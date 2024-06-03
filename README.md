@@ -10,8 +10,8 @@ Live at app.larena.io
 
 | Network       | Address                                                                           |
 | ------------- | --------------------------------------------------------------------------------- |
-| Base          |[0x000000000005b7e7a344d73d7a1f0b6bb89ff355](https://basescan.org/address/0x000000000005b7e7a344d73d7a1f0b6bb89ff355)|
-| Base-sepolia  |[0x000000000005b7e7a344d73d7a1f0b6bb89ff355](https://basescan.org/address/0x000000000005b7e7a344d73d7a1f0b6bb89ff355)|
+| Base          |[0x000000000004f26431d4bacd23469f04cd99edab](https://basescan.org/address/0x000000000004f26431d4bacd23469f04cd99edab)|
+| Base-sepolia  |[0x000000000004f26431d4bacd23469f04cd99edab](https://basescan.org/address/0x000000000004f26431d4bacd23469f04cd99edab)|
 
 ## Note
 
