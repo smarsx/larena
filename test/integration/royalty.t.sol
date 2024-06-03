@@ -48,6 +48,8 @@ contract RoyaltyIntegrationTest is Test {
     }
 
     function testValidId(uint16 _royalty, uint64 _salePrice) public {
+        _royalty = uint16(bound(_royalty, 0, 1000));
+
         uint256 expectedRoyalty = (uint256(_salePrice) * uint256(_royalty)) /
             constants.ROYALTY_DENOMINATOR();
 

@@ -26,6 +26,7 @@ contract DeployMainnetTest is Test {
             "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         );
 
+        vm.warp(block.timestamp + 420 days);
         vm.deal(vm.addr(vm.envUint("DEPLOYER_PRIVATE_KEY")), type(uint64).max);
 
         deployScript = new DeployMain();

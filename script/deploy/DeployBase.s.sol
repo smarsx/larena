@@ -58,9 +58,9 @@ abstract contract DeployBase is Script {
         unrevealed = new Unrevealed();
 
         // fund deployer addresses
-        // payable(larenaDeployerAddress).transfer(0.2 ether);
-        // payable(pagesDeployerAddress).transfer(0.1 ether);
-        // payable(coinDeployerAddress).transfer(0.1 ether);
+        payable(larenaDeployerAddress).transfer(0.06 ether);
+        payable(pagesDeployerAddress).transfer(0.03 ether);
+        payable(coinDeployerAddress).transfer(0.015 ether);
 
         vm.stopBroadcast();
 

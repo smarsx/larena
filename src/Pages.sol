@@ -209,21 +209,6 @@ contract Pages is PagesERC721, LinearVRGDA {
         }
     }
 
-    // /// @notice render with metadata.
-    // /// @dev any attributes returned by a delegate should not be trusted as fact.
-    // function render(
-    //     uint256 pageID,
-    //     uint256 epochID,
-    //     uint256 emissionMultiple,
-    //     uint256 index
-    // ) external view returns (string memory) {
-    //     Metadata memory metadata = pageMetadata[pageID];
-    //     return
-    //         metadata.delegate
-    //             ? DelegatePage(metadata.pointer).tokenURI(epochID, emissionMultiple, index)
-    //             : NFTMeta.renderWithTraits(emissionMultiple, SSTORE2.read(metadata.pointer));
-    // }
-
     /*//////////////////////////////////////////////////////////////
                              TOKEN URI LOGIC
     //////////////////////////////////////////////////////////////*/

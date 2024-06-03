@@ -33,6 +33,12 @@ import {Coin} from "./Coin.sol";
 contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     using LibString for uint256;
 
+    /// @notice Length of time epoch is active.
+    uint256 public constant EPOCH_LENGTH = 30 days + 1 hours;
+
+    /// @notice Max submissions per epoch.
+    uint256 public constant MAX_SUBMISSIONS = 100;
+
     /// @dev The day the switch from a logistic to translated linear VRGDA is targeted to occur.
     int256 internal constant SWITCH_DAY_WAD = 1230e18;
 
@@ -40,20 +46,17 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
     /// schedule to switch from logistic to linear formula.
     int256 internal constant SOLD_BY_SWITCH_WAD = 9930e18;
 
-    /// @notice Max submissions per epoch.
-    uint256 public constant MAX_SUBMISSIONS = 100;
-
     /// @notice The royalty denominator (bps).
     uint256 internal constant ROYALTY_DENOMINATOR = 10000;
+
+    /// @notice max royalty: 10%
+    uint256 internal constant MAX_ROYALTY = 1000;
 
     /// @notice Length of time until admin recovery of claims is allowed.
     uint256 internal constant RECOVERY_PERIOD = 420 days;
 
-    /// @notice Length of time epoch is active.
-    uint256 public constant EPOCH_LENGTH = 30 days + 1 hours;
-
     /// @notice Submissions are not allowed in the 48 hours preceeding end of epoch.
-    uint256 public constant SUBMISSION_DEADLINE = EPOCH_LENGTH - 48 hours;
+    uint256 internal constant SUBMISSION_DEADLINE = EPOCH_LENGTH - 48 hours;
 
     /// @notice Voting power decays exponentially in the 12 hours preceeding end of epoch.
     /// @dev = EPOCH_LENGTH - 12 hours
@@ -254,6 +257,7 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
         if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
         if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
         if (block.timestamp > estart + SUBMISSION_DEADLINE) revert InvalidTime();
+        if (_royalty > MAX_ROYALTY) revert();
 
         address pointer = SSTORE2.write(
             NFTMeta.constructTokenURI(
@@ -283,6 +287,7 @@ contract Larena is LarenaERC721, LogisticToLinearVRGDA, Owned {
         if ($pages.ownerOf(_pageID) != msg.sender) revert NotOwner();
         if ($submissions[epochID].length >= MAX_SUBMISSIONS) revert MaxSupply();
         if (block.timestamp > estart + SUBMISSION_DEADLINE) revert InvalidTime();
+        if (_royalty > MAX_ROYALTY) revert();
 
         $pages.setMetadata(_pageID, _royalty, _pointer, true);
         $submissions[epochID].push(_pageID);

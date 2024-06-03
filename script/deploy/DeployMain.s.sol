@@ -5,7 +5,7 @@ import {DeployBase} from "./DeployBase.s.sol";
 
 contract DeployMain is DeployBase {
     address public immutable coldWallet = vm.envAddress("COLDWALLET_ADDRESS");
-    uint256 public immutable pageStart = block.timestamp;
+    uint256 public immutable pageStart = block.timestamp - 10 days;
 
     constructor() DeployBase(coldWallet, pageStart) {}
 }

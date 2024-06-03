@@ -15,11 +15,11 @@ Live at app.larena.io
 
 ## Note
 
-This document is not a complete or exhaustive source. At this moment the best source of information is the contracts themselves. Most of the logic is in larena.sol.
+This document is not a complete or exhaustive source. At this moment the best source of information is the contracts themselves. Most of the logic is in larena.sol
 
 ## Epoch
 
-- a continuous loop of 30-day epochs create the submit/vote/crown_winner loop
+- a continuous loop of 30-day epochs
 - once an epoch has concluded, votes are tallied, winning pages are crowned, and submitting/voting is opened for the next epoch
 
 ## Tokens
@@ -27,10 +27,11 @@ This document is not a complete or exhaustive source. At this moment the best so
 ### larena
 
 - ERC-721 priced on logistic-to-linear [VRGDA](https://www.paradigm.xyz/2022/08/vrgda#logistic-issuance-schedule) curve
-- around epoch 42 curve switches to linear, limiting supply to 10 per epoch (120/year) for eternity
+- curve switches to linear at epoch ~42, limiting supply to 10/epoch (120/year) for eternity
 - minted with ether
 - continuous lazy $COIN emission (see $COIN)
-- when the winning page is crowned, larena's metadata is inherited from this page
+- larena's metadata is inherited from top-voted page
+  
 ![larena supply](/assets/larena%20supply.png)
 
 ### pages
