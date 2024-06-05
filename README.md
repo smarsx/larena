@@ -122,7 +122,7 @@ interface DelegatePage {
     /// @notice return data-uri of resource.
     /// @dev "data:image/svg+xml;base64,xxx"
     /// @dev used in Pages.tokenURI
-    function tokenUri() external view returns (string memory);
+    function tokenUri() external returns (string memory);
 
     /// @notice return data-uri with metadata and traits.
     /// @dev expected to be data-uri of type data:application/json;base64
@@ -138,7 +138,7 @@ interface DelegatePage {
         uint256 epochID,
         uint256 emissionMultiple,
         uint256 index
-    ) external view returns (string memory);
+    ) external returns (string memory);
 }
 
 /// @notice Submit delegate page to an epoch.
